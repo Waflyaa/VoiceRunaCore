@@ -1,0 +1,39 @@
+[package]
+name = "voiceruna"
+version = "0.1.0"
+description = "VoiceRunaCore — голосовой помощник для Windows: оболочка на Tauri 2"
+authors = ["VoiceRunaCore"]
+edition = "2021"
+license = "MIT"
+
+# Библиотека нужна Tauri 2: мобильные цели линкуются с cdylib/staticlib,
+# десктоп использует rlib. main.rs вызывает voiceruna_lib::run().
+[lib]
+name = "voiceruna_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# icon: PNG/ICO декодирование для иконок трея (Image::from_bytes).
+tauri = { version = "2", features = ["tray-icon", "image-png", "image-ico"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rand = "0.8"
+
+[features]
+default = []
+# Включается tauri-cli при сборке бандла: фронтенд отдаётся из ресурсов, а не с dev-сервера.
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

@@ -1,0 +1,26 @@
+# Core web layer
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+pydantic==2.10.4
+
+# Router
+rapidfuzz==3.11.0
+
+# Audio / speech
+numpy==2.2.1
+sounddevice==0.5.1
+soundfile==0.12.1
+miniaudio==1.61
+edge-tts==7.0.0
+# Local neural voice: Piper without torch (GPL-3.0-or-later).
+# pathvalidate is a piper-tts dependency, pinned for reproducible bundles.
+piper-tts==1.8.0
+pathvalidate==3.3.1
+faster-whisper==1.1.1
+onnxruntime==1.20.1
+vosk==0.3.45
+
+# tooling / tests
+pytest==8.3.4
+pytest-asyncio==0.25.0

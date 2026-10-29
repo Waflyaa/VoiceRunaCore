@@ -1,0 +1,7 @@
+/target/
+/gen/
+
+# Сюда packaging/build-app.ps1 копирует собранный onedir-сайдкар (exe + _internal).
+# В git хранится только .gitkeep, чтобы каталог существовал и tauri dev работал без сайдкара.
+/resources/sidecar/*
+!/resources/sidecar/.gitkeep

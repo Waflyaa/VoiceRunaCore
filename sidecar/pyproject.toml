@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voicerunacore-sidecar"
+version = "0.1.0"
+description = "VoiceRunaCore voice assistant sidecar (ears, brain, hands, voice)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi==0.115.6",
+  "uvicorn[standard]==0.34.0",
+  "httpx==0.28.1",
+  "pydantic==2.10.4",
+  "rapidfuzz==3.11.0",
+  "numpy==2.2.1",
+  "sounddevice==0.5.1",
+  "soundfile==0.12.1",
+  "edge-tts==7.0.0",
+  "faster-whisper==1.1.1",
+  "onnxruntime==1.20.1",
+  "vosk==0.3.45",
+  "miniaudio==1.61",
+  "piper-tts==1.8.0",
+  "pathvalidate==3.3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.4", "pytest-asyncio==0.25.0"]
+
+[project.scripts]
+voiceruna-sidecar = "voiceruna.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["voiceruna*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

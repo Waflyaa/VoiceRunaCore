@@ -1,0 +1,46 @@
+# ---- secrets (never commit your API keys)
+.env
+.env.*
+*.env
+
+# ---- user data and downloaded models (live in %APPDATA%\VoiceRunaCore)
+models/
+logs/
+voices/
+voices.json
+apps.local.json
+*.bin
+*.onnx
+*.onnx.json
+
+# ---- python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.venv-build/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.spec.bak
+
+# ---- node / svelte / tauri
+node_modules/
+.pnpm-store/
+app/dist/
+app/.vite/
+app/src-tauri/target/
+app/src-tauri/gen/
+app/src-tauri/resources/sidecar/
+
+# ---- os / editors
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.log
+build-log*.txt

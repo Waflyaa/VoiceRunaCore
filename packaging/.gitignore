@@ -1,0 +1,8 @@
+# venv и артефакты PyInstaller-сборки сайдкара
+.venv/
+.venv-build/
+build/
+dist/
+.pyinstaller/
+__pycache__/
+*.pyc
