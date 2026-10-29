@@ -315,3 +315,23 @@ async def test_network_failure_still_says_no_connection(harness, config):
     rt._llm = FakeLLM(LLMResult(error="no_connection"))
 
     assert await rt.handle_text("привет", source="window") == config.get("errors.no_connection_phrase")
+
+
+class RaisingLLM(FakeLLM):
+    async def complete(self, messages, tools=None):
+        raise RuntimeError("provider exploded")
+
+
+@pytest.mark.asyncio
+async def test_failed_turn_restores_idle_state(harness):
+    """A crashing provider must not leave the assistant stuck in THINKING."""
+    rt, state = harness
+    rt._tools = FakeTools(ToolResult(ok=False, speech="не могу это сделать", error="x"))
+    rt._llm = RaisingLLM()
+
+    try:
+        await rt.handle_text("расскажи анекдот", source="window")
+    except Exception:
+        pass
+
+    assert state.state == IDLE

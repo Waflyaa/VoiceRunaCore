@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from typing import Callable
+
+log = logging.getLogger(__name__)
 
 IDLE = "idle"
 LISTENING = "listening"
@@ -42,9 +45,14 @@ class StateManager:
             raise ValueError(f"unknown state: {state}")
         with self._lock:
             changed = state != self._state
+            previous = self._state
             self._state = state
             listeners = list(self._listeners)
         if changed:
+            # Logged here, not in the callers: the runtime sets THINKING/IDLE
+            # directly, so pipeline-side logging would miss exactly the
+            # transitions that matter when the assistant goes deaf.
+            log.info("state: %s -> %s", previous, state)
             for listener in listeners:
                 try:
                     listener(state)

@@ -986,3 +986,47 @@ def test_loud_audio_resets_the_silence_watchdog(config, events):
 
     assert pipeline._mic_reopens == 0
     assert pipeline._silent_since == 0.0
+
+
+# ------------------------------------------------- frame-starvation watchdog
+def test_starved_stream_is_reopened(config, events, monkeypatch):
+    rig = Rig(config, events, wake_mode="vosk")
+    monkeypatch.setattr(pipeline_module, "MIC_STARVE_SEC", 10.0)
+    monkeypatch.setattr(pipeline_module, "MIC_STARVE_REOPEN_COOLDOWN_SEC", 60.0)
+    pipeline = rig.pipeline
+    pipeline._mic_dirty = False
+    pipeline._mic_starve_reopens = 0
+    pipeline._last_starve_reopen_at = 0.0
+    pipeline._last_frame_at = time.monotonic() - 30.0
+
+    pipeline._check_mic_starvation()
+
+    assert pipeline._mic_dirty is True
+    assert pipeline._mic_starve_reopens == 1
+
+
+def test_starvation_watchdog_respects_the_cooldown(config, events, monkeypatch):
+    rig = Rig(config, events, wake_mode="vosk")
+    monkeypatch.setattr(pipeline_module, "MIC_STARVE_SEC", 10.0)
+    pipeline = rig.pipeline
+    pipeline._mic_dirty = False
+    pipeline._mic_starve_reopens = 0
+    pipeline._last_starve_reopen_at = time.monotonic()
+    pipeline._last_frame_at = time.monotonic() - 30.0
+
+    pipeline._check_mic_starvation()
+
+    assert pipeline._mic_dirty is False
+    assert pipeline._mic_starve_reopens == 0
+
+
+def test_fresh_frames_do_not_trigger_the_watchdog(config, events):
+    rig = Rig(config, events, wake_mode="vosk")
+    pipeline = rig.pipeline
+    pipeline._mic_dirty = False
+    pipeline._last_frame_at = time.monotonic()
+    pipeline._last_starve_reopen_at = 0.0
+
+    pipeline._check_mic_starvation()
+
+    assert pipeline._mic_dirty is False

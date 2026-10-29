@@ -178,13 +178,19 @@ class AssistantRuntime:
             self._arm_reset_timer()
             self._state.set(THINKING)
 
-            answer = await self._respond(text)
-            self._remember("assistant", answer)
-            self._emit(answer_event(answer, replaced))
+            # The restore must survive any failure below: THINKING is not a
+            # state the wake path listens in (the pipeline gates on idle and
+            # speaking), so a raised provider call used to leave the assistant
+            # permanently deaf until the app was restarted.
+            try:
+                answer = await self._respond(text)
+                self._remember("assistant", answer)
+                self._emit(answer_event(answer, replaced))
 
-            await self._speak(answer)
-            self._restore_idle_state()
-            return answer
+                await self._speak(answer)
+                return answer
+            finally:
+                self._restore_idle_state()
 
     async def repeat(self) -> str:
         """Re-run the last utterance (TZ §2.4): repair after a recognition error."""

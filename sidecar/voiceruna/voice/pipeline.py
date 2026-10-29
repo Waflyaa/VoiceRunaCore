@@ -85,6 +85,17 @@ MIC_REOPEN_ATTEMPTS = 2
 MIC_REOPEN_COOLDOWN_SEC = 60.0
 #: Retry interval for a microphone that was not available at start().
 MIC_RETRY_SEC = 5.0
+#: A capture stream can stay "active" while the device has silently stopped
+#: delivering frames (USB headset re-plugged, WDM-KS hiccup): PortAudio reports
+#: no error and every read just times out. Without this watchdog the assistant
+#: idles in silence until the whole app is restarted - /health still answers 200
+#: and the state stays "idle", which is exactly the owner's "it stopped hearing
+#: me" (owner report 2026-10-29). Reopen the stream after this long without a
+#: single frame.
+MIC_STARVE_SEC = 10.0
+#: Never reopen a starved stream more often than this, so a device that is
+#: permanently gone is retried once a minute instead of spinning.
+MIC_STARVE_REOPEN_COOLDOWN_SEC = 60.0
 #: The sidecar's event hub forwards StateManager notifications, so the pipeline
 #: does not emit a second copy of every state transition.
 EMIT_STATE_EVENTS = False
@@ -163,6 +174,11 @@ class VoicePipeline:
         self._mic_ok = False
         self._mic_error_emitted = False
         self._mic_retry_at = 0.0
+        # Frame-starvation watchdog: when the last frame arrived, how many
+        # reopens a starved stream needed, and when the last one happened.
+        self._last_frame_at = 0.0
+        self._mic_starve_reopens = 0
+        self._last_starve_reopen_at = 0.0
 
         self._mic: MicSource | None = None
         self._mic_factory: Callable[[], MicSource] = lambda: create_mic(self._config)
@@ -365,6 +381,7 @@ class VoicePipeline:
         if opened:
             self._load_calibration()
             asyncio.create_task(self._auto_calibrate(), name="vox-calibrate")
+        self._last_frame_at = time.monotonic()
         self._task = asyncio.create_task(self._run(), name="vox-voice")
         if opened and self._state.state in (IDLE, ERROR):
             self._set_state(IDLE)
@@ -723,11 +740,16 @@ class VoicePipeline:
                     if not await self._ensure_mic():
                         await asyncio.sleep(0.05)
                         continue
+                    self._last_frame_at = time.monotonic()
                     if self._state.state == ERROR:  # microphone came back
                         self._set_state(IDLE)
                 self._check_listen_timeout()
                 await self._tick_unload()
                 if self._paused or self._mic is None:
+                    # Deliberately silent, not starving: keep the clock fresh so
+                    # a pause longer than MIC_STARVE_SEC does not look like a
+                    # dead stream when it resumes.
+                    self._last_frame_at = time.monotonic()
                     await asyncio.sleep(0.05)
                     continue
                 loop = asyncio.get_running_loop()
@@ -737,8 +759,13 @@ class VoicePipeline:
                 if not self._running:
                     break
                 if frame is None:
+                    self._check_mic_starvation()
                     await asyncio.sleep(0.002)
                     continue
+                self._last_frame_at = time.monotonic()
+                if self._mic_starve_reopens:
+                    log.info("microphone is delivering frames again")
+                    self._mic_starve_reopens = 0
                 # Raw input for debug_mic_raw.wav: shows whether VAD cut the phrase.
                 self._ring.push(frame)
                 self._log_input_level(frame)
@@ -793,6 +820,40 @@ class VoicePipeline:
             MIC_REOPEN_ATTEMPTS,
         )
         self._mic_dirty = True
+
+    def _check_mic_starvation(self) -> None:
+        """Reopen a stream that is "active" but has stopped delivering frames.
+
+        PortAudio keeps a broken capture stream open: no error, no callback, so
+        every read simply times out. The old loop slept 2 ms and tried again
+        forever - the assistant stayed "idle", /health answered 200 and the app
+        looked healthy while it could not hear a word. Reopening the device is
+        the only thing that brings such a stream back.
+        """
+        now = time.monotonic()
+        if not self._last_frame_at:
+            self._last_frame_at = now
+            return
+        silent_for = now - self._last_frame_at
+        if silent_for < MIC_STARVE_SEC:
+            return
+        if now - self._last_starve_reopen_at < MIC_STARVE_REOPEN_COOLDOWN_SEC:
+            return
+        self._last_starve_reopen_at = now
+        self._mic_starve_reopens += 1
+        self._last_frame_at = now
+        log.warning(
+            "microphone delivered no frames for %.0f s, reopening (attempt %d)",
+            silent_for,
+            self._mic_starve_reopens,
+        )
+        self._mic_dirty = True
+
+    def _frame_age_seconds(self) -> float | None:
+        """Seconds since the last captured frame (diagnostics)."""
+        if not self._last_frame_at:
+            return None
+        return round(max(0.0, time.monotonic() - self._last_frame_at), 2)
 
     def _log_input_level(self, frame: Any) -> None:
         """Log the live input level every couple of seconds (diagnostics).
@@ -1857,6 +1918,11 @@ class VoicePipeline:
                 "resampled": bool(getattr(mic, "resampled", False)),
                 "peak_dbfs": getattr(self, "_last_input_peak_db", None),
                 "rms_dbfs": getattr(self, "_last_input_rms_db", None),
+                # Freshness of the audio, not just its level: a stream can be
+                # "ok" with peak -90 dBFS either because the room is silent or
+                # because it stopped delivering frames at all.
+                "last_frame_age_s": self._frame_age_seconds(),
+                "starved_reopens": getattr(self, "_mic_starve_reopens", 0),
             }
         except Exception as exc:  # pragma: no cover
             result["mic"] = {"ok": False, "device": "", "error": str(exc)}
@@ -2008,6 +2074,7 @@ class VoicePipeline:
 __all__ = [
     "EMIT_STATE_EVENTS",
     "MIC_MUTE_AFTER_SPEECH_SEC",
+    "MIC_STARVE_SEC",
     "MIN_SPEECH_MS",
     "READ_TIMEOUT",
     "STT_SAMPLE_RATE",
