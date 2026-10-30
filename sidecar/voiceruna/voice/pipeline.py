@@ -229,6 +229,7 @@ class VoicePipeline:
         self._wake_mode = "vad_stt"
         self._wake_phrase = "вокс"
         self._wake_fallback = True
+        self._followup_window = 5.0
         self._wake_injected = False
         self._busy = False
         self._last_heard = ""
@@ -265,6 +266,7 @@ class VoicePipeline:
                 pre_buffer_ms=float(cfg.get("vad.wake_pre_buffer_ms", 500)),
             )
             self._listen_timeout = float(cfg.get("wakeword.listen_timeout_sec", 6) or 6)
+            self._followup_window = float(cfg.get("wakeword.followup_window_sec", 5) or 0)
             self._tail_pad_ms = float(cfg.get("vad.tail_pad_ms", 500) or 0)
             self._debug_save = bool(cfg.get("debug.save_audio", False))
             raw_seconds = float(cfg.get("debug.raw_seconds", 10) or 0)
@@ -360,6 +362,26 @@ class VoicePipeline:
         self._listen_deadline = time.monotonic() + self._listen_timeout
         if self._state.state != LISTENING:
             self._set_state(LISTENING)
+
+    def begin_followup(self) -> None:
+        """Keep the microphone armed right after a spoken answer (v2 UX).
+
+        A reply without the wake word is a continuation of the dialogue: the
+        segmenter is armed exactly like after a wake word, and the ordinary
+        listen timeout is replaced by wakeword.followup_window_sec. Silence
+        for the whole window drops back to wake-word mode via
+        _check_listen_timeout.
+        """
+        if self._closed or self._paused or not self._running or self._mic is None:
+            return
+        window = float(self._followup_window or 0)
+        if window <= 0:
+            return
+        self._segmenter.arm()
+        self._listen_deadline = time.monotonic() + window
+        if self._state.state != LISTENING:
+            self._set_state(LISTENING)
+        log.debug("follow-up window open for %.1f s", window)
 
     # ------------------------------------------------------------------ lifecycle
     async def start(self) -> None:

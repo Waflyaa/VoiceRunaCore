@@ -154,3 +154,19 @@ def test_energy_vad_follows_the_noise_floor():
         vad.is_speech(frame(quiet))
     # a constant hum above the initial threshold stops counting as speech
     assert vad.is_speech(frame(quiet))[0] is False
+
+
+def test_endpointing_waits_for_real_silence():
+    """v2: the phrase ends after 1.5 s of real silence, not a fixed timer."""
+    segmenter = UtteranceSegmenter(
+        silence_ms=1500, max_utterance_sec=30, min_speech_ms=64, pre_buffer_ms=0
+    )
+    segmenter.arm()
+    assert segmenter.push(frame(2000), 0.1, True).kind == START
+    assert segmenter.push(frame(2000), 0.1, True).kind == CONTINUE
+
+    kinds = [segmenter.push(frame(0), 0.0, False).kind for _ in range(50)]
+
+    # 40 frames is 1.28 s of quiet - a natural pause, still the same phrase.
+    assert END not in kinds[:40]
+    assert END in kinds

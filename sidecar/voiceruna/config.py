@@ -182,8 +182,11 @@ DEFAULTS: dict[str, Any] = {
         "min_confidence": 0.42,
     },
     "vad": {
-        "silence_ms": 800,
-        "max_utterance_sec": 12,
+        # Endpointing by real silence, not a fixed timer: a long sentence with
+        # short pauses stays one utterance, the phrase ends after 1.5 s of quiet.
+        "silence_ms": 1500,
+        # Long commands are the point of v2: allow half a minute of speech.
+        "max_utterance_sec": 30,
         "pre_buffer_ms": 700,
         # Extra silence appended after the detected end before Whisper sees the
         # phrase: a hard cut on the last consonant is a common cause of garbage
@@ -198,6 +201,9 @@ DEFAULTS: dict[str, Any] = {
         "phrase": "вокс",
         "threshold": 0.5,
         "listen_timeout_sec": 6,
+        # After a spoken answer the microphone stays armed for this long: a
+        # reply without the wake word continues the dialogue.
+        "followup_window_sec": 5,
         "bargein_bump": 0.15,
         # If Vosk is selected but its model is missing/broken, fall back to VAD+STT.
         "fallback_to_stt": True,

@@ -88,6 +88,7 @@ export interface WakewordConfig {
   phrase: string;
   threshold: number;
   listen_timeout_sec: number;
+  followup_window_sec: number;
   bargein_bump: number;
 }
 

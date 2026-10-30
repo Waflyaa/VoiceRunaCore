@@ -30,6 +30,7 @@ class FakeVoice:
         self.spoken: list[str] = []
         self.calls: list[str] = []
         self.paused = False
+        self.followup_calls = 0
         self.preview_result: tuple[bool, str] = (True, "прозвучало")
         self.test_output_result: tuple[bool, str] = (True, "проверка звука прошла")
         self.test_input_result: tuple[bool, str, float] = (True, "уровень 12%", 0.12)
@@ -66,6 +67,9 @@ class FakeVoice:
     async def speak(self, text: str) -> None:
         self.spoken.append(text)
         self.calls.append("speak")
+
+    def begin_followup(self) -> None:
+        self.followup_calls += 1
 
     async def stop_speaking(self) -> None:
         self.calls.append("stop_speaking")
@@ -335,3 +339,25 @@ async def test_failed_turn_restores_idle_state(harness):
         pass
 
     assert state.state == IDLE
+
+
+@pytest.mark.asyncio
+async def test_voice_answer_opens_followup_window(harness):
+    rt, _state = harness
+    rt._tools = FakeTools(ToolResult(ok=True, speech="Открываю Блокнот"))
+    rt._llm = FakeLLM(make_llm_result(text="should not be used"))
+
+    await rt.handle_text("Вокс, открой блокнот", source="voice")
+
+    assert rt._voice.followup_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_window_text_does_not_open_followup_window(harness):
+    rt, _state = harness
+    rt._tools = FakeTools(ToolResult(ok=True, speech="Открываю Блокнот"))
+    rt._llm = FakeLLM(make_llm_result(text="should not be used"))
+
+    await rt.handle_text("открой блокнот", source="window")
+
+    assert rt._voice.followup_calls == 0

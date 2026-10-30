@@ -1030,3 +1030,46 @@ def test_fresh_frames_do_not_trigger_the_watchdog(config, events):
     pipeline._check_mic_starvation()
 
     assert pipeline._mic_dirty is False
+
+
+# ------------------------------------------------------- follow-up window (v2)
+def test_followup_window_arms_listening(config, events):
+    rig = Rig(config, events, wake_mode="vosk")
+    pipeline = rig.pipeline
+    pipeline._running = True
+    pipeline._mic = object()
+    pipeline._followup_window = 5.0
+    pipeline._state.set(IDLE)
+
+    pipeline.begin_followup()
+
+    assert pipeline._state.state == LISTENING
+    assert pipeline._listen_deadline is not None
+
+
+def test_followup_window_returns_to_wake_mode_on_silence(config, events):
+    rig = Rig(config, events, wake_mode="vosk")
+    pipeline = rig.pipeline
+    pipeline._running = True
+    pipeline._mic = object()
+    pipeline._followup_window = 5.0
+    pipeline._state.set(IDLE)
+    pipeline.begin_followup()
+
+    pipeline._listen_deadline = time.monotonic() - 1.0
+    pipeline._check_listen_timeout()
+
+    assert pipeline._state.state == IDLE
+
+
+def test_followup_can_be_disabled(config, events):
+    rig = Rig(config, events, wake_mode="vosk")
+    pipeline = rig.pipeline
+    pipeline._running = True
+    pipeline._mic = object()
+    pipeline._followup_window = 0.0
+    pipeline._state.set(IDLE)
+
+    pipeline.begin_followup()
+
+    assert pipeline._state.state == IDLE

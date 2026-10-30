@@ -182,15 +182,23 @@ class AssistantRuntime:
             # state the wake path listens in (the pipeline gates on idle and
             # speaking), so a raised provider call used to leave the assistant
             # permanently deaf until the app was restarted.
+            spoken = False
             try:
                 answer = await self._respond(text)
                 self._remember("assistant", answer)
                 self._emit(answer_event(answer, replaced))
 
                 await self._speak(answer)
+                spoken = bool(answer.strip())
                 return answer
             finally:
                 self._restore_idle_state()
+                # Voice conversations keep the microphone hot for a few
+                # seconds: "а теперь подробнее" needs no wake word (v2 UX).
+                if spoken and source == "voice" and not self._paused:
+                    begin = getattr(self._voice, "begin_followup", None)
+                    if callable(begin):
+                        begin()
 
     async def repeat(self) -> str:
         """Re-run the last utterance (TZ §2.4): repair after a recognition error."""

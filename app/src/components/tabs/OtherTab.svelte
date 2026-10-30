@@ -61,6 +61,11 @@
       <span class="field__label">Ожидание команды после wake, с</span>
       <input class="field__input" type="number" min="1" max="60" step="1" bind:value={config.wakeword.listen_timeout_sec} />
     </label>
+    <label class="field">
+      <span class="field__label">Окно follow-up после ответа, с</span>
+      <input class="field__input" type="number" min="0" max="30" step="1" bind:value={config.wakeword.followup_window_sec} />
+      <span class="field__hint">Столько секунд после ответа можно продолжать диалог без слова-будильника. 0 — выключено.</span>
+    </label>
   </section>
 
   <section class="group">
