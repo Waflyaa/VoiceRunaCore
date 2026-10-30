@@ -130,3 +130,41 @@ def test_package_reexports() -> None:
 
     assert PackageRouter is EngineRouter
     assert PackageResult is EngineResult
+
+
+# ------------------------------------------------------------ v2 tools (fast path)
+VOLUME_PHRASES = [
+    ("Вокс, громче", {"action": "up"}),
+    ("Вокс, прибавь громкость", {"action": "up"}),
+    ("Вокс, тише", {"action": "down"}),
+    ("Вокс, убавь звук", {"action": "down"}),
+    ("Вокс, выключи звук", {"action": "mute"}),
+    ("Вокс, без звука", {"action": "mute"}),
+    ("Вокс, включи звук", {"action": "unmute"}),
+    ("Вокс, громкость 50%", {"action": "set", "level": 50}),
+    ("Вокс, громкость 100", {"action": "set", "level": 100}),
+]
+
+
+@pytest.mark.parametrize(("phrase", "args"), VOLUME_PHRASES)
+def test_volume_phrases(router: Router, phrase: str, args: dict) -> None:
+    result = router.route(phrase)
+
+    assert result.tool == "set_volume"
+    assert result.args == args
+
+
+def test_volume_rejects_out_of_range_level(router: Router) -> None:
+    assert router.route("Вокс, громкость 150").tool != "set_volume"
+
+
+def test_create_file_phrases(router: Router) -> None:
+    simple = router.route("Вокс, создай файл заметка")
+    assert simple.tool == "create_file"
+    assert simple.args == {"filename": "заметка.txt"}
+
+    markdown = router.route("Вокс, создай файл план.md")
+    assert markdown.args == {"filename": "план.md"}
+
+    with_text = router.route("Вокс, создай файл идеи.md с текстом купить хлеб")
+    assert with_text.args == {"filename": "идеи.md", "content": "купить хлеб"}

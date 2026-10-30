@@ -21,6 +21,10 @@ faster-whisper==1.1.1
 onnxruntime==1.20.1
 vosk==0.3.45
 
+# Windows system volume (tool set_volume)
+pycaw==20260927
+comtypes==1.4.17
+
 # tooling / tests
 pytest==8.3.4
 pytest-asyncio==0.25.0

@@ -118,7 +118,7 @@ sidecar/                          Python-бэкенд
       engine.py                   быстрые правила: алиасы, шаблоны, фаззи
     tools/
       base.py                     ToolResult (ok/speech/payload/error)
-      executor.py                 пять инструментов и проверка аргументов
+      executor.py                 инструменты (+ ToolRegistry) и проверка аргументов
       weather.py                  погода: Open-Meteo + резерв wttr.in
     voice/
       audio.py                    захват микрофона, выбор формата, воспроизведение
@@ -149,7 +149,7 @@ spike/, tools/                    эксперименты и утилиты (н
         └─► pipeline._run(): читает кадры в отдельном потоке
              ├─► vad.SileroVad.is_speech()      «это речь?»
              ├─► pipeline._energy_speech()      уровень выше шума + спектральная проверка
-             └─► UtteranceSegmenter             начало фразы / тишина 0.5–0.8 с / максимум
+             └─► UtteranceSegmenter             начало фразы / 1.5 с тишины / до 30 с
                   └─► pipeline._run_wake_check() (режим vad_stt)
                        ├─► stt.WhisperTranscriber (strip_wake=False)
                        ├─► VoiceRunaCore в первых трёх словах? нет → игнор
@@ -157,7 +157,7 @@ spike/, tools/                    эксперименты и утилиты (н
                             └─► runtime.handle_text()
                                  ├─► router.Router.route(): алиас/шаблон → инструмент
                                  └─► иначе LLM → tool_call или текст
-                                      └─► tools.executor: запуск/папка/файл/время/погода
+                                      └─► tools.executor: запуск/папка/файл/время/погода/громкость/файл в песочнице/громкость/файл в песочнице
                                            └─► tts: Piper → edge → SAPI → динамики
 ```
 
@@ -169,7 +169,7 @@ spike/, tools/                    эксперименты и утилиты (н
 | Состояние | Когда |
 |---|---|
 | `idle` | ждёт wake-слово или команду |
-| `listening` | записывает фразу (wake сработал / нажата кнопка / хоткей) |
+| `listening` | фраза (wake/кнопка/хоткей), после ответа — follow-up |
 | `thinking` | распознаёт или ждёт LLM |
 | `speaking` | озвучивает ответ |
 | `paused` | микрофон выключен из трея |
@@ -189,7 +189,7 @@ spike/, tools/                    эксперименты и утилиты (н
    - LLM вернул `tool_call` → тот же executor; иначе текст ответа.
 3. Ответ: событие в UI (`transcript`, `answer`, `state`) + озвучка через `tts`.
 
-Инструменты (единственные, что существуют):
+Инструменты (единственные, что существуют; новые регистрируются через ToolRegistry):
 
 | Инструмент | Аргументы | Что делает |
 |---|---|---|
@@ -198,6 +198,8 @@ spike/, tools/                    эксперименты и утилиты (н
 | `open_file` | `folder_id`, `filename` | открывает файл в известной папке |
 | `get_time` | — | локальное время |
 | `get_weather` | `city?` | погода (Open-Meteo, резерв wttr.in) |
+| `set_volume` | `action`, `level?` | громкость через pycaw |
+| `create_file` | `filename`, `content?` | .txt/.md только в Documents\VoiceRunaCore |
 
 ---
 
@@ -223,8 +225,9 @@ spike/, tools/                    эксперименты и утилиты (н
 | `audio.input_device` / `output_device` | `"default"` или `"index:N"` |
 | `audio.calibration` | шум/порог по каждому устройству `{"index:N": {...}}` |
 | `stt.model` / `beam_size` / `min_peak_dbfs` / `max_no_speech` | распознавание |
-| `vad.silence_ms` / `max_utterance_sec` / `wake_max_sec` | нарезка фраз |
-| `wakeword.engine` (`vad_stt`/`vosk`/`none`), `phrase` | слово-будильник |
+| `vad.silence_ms` (1500) / `max_utterance_sec` (30) / `wake_max_sec` | endpointing и длина фразы |
+| `wakeword.engine` (`vad_stt`/`vosk`/`none`), `phrase` | имя/слово-будильник |
+| `wakeword.followup_window_sec` | окно продолжения диалога без слова-будильника |
 | `tts.engine` (`auto`/`piper`/`edge`/`sapi`), `voice`, `rate` | голос |
 | `llm.providers[]` | `id`, `enabled`, `base_url`, `api_key_env`, `model`, `priority` |
 | `llm.timeout_sec` | таймаут запроса к LLM |

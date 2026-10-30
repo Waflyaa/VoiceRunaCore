@@ -96,6 +96,9 @@ for package in (
     # frozen app with "espeak-ng data not found".
     "piper",
     "pathvalidate",
+    # v2 tools: set_volume talks to the audio endpoint through pycaw/comtypes.
+    "pycaw",
+    "comtypes",
 ):
     try:
         pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(package)

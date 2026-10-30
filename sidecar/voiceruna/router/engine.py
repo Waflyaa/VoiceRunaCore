@@ -33,6 +33,19 @@ WEATHER_RE = re.compile(r"\bпогод[аыуе]?\b")
 CITY_RE = re.compile(r"\bв(?:о)?\s+([0-9a-zа-я][0-9a-zа-я\s]*)$")
 FOLDER_RE = re.compile(r"^папк[ауи]?\s+(.+)$")
 FILE_RE = re.compile(r"^файл\s+(.+?)\s+(?:в|во|из|на)\s+(.+)$")
+VOLUME_RE = re.compile(
+    r"^(?:"
+    r"(?P<up>громче|прибавь\s+(?:громкость|звук)|увеличь\s+(?:громкость|звук))"
+    r"|(?P<down>тише|убавь\s+(?:громкость|звук)|уменьши\s+(?:громкость|звук))"
+    r"|(?P<mute>выключи\s+(?:звук|громкость)|без\s+звука)"
+    r"|(?P<unmute>включи\s+(?:звук|громкость))"
+    r"|(?P<set>громкость\s+(?P<level>\d{1,3})\s*%?)"
+    r")$"
+)
+CREATE_FILE_RE = re.compile(
+    r"^(?:создай|сделай|запиши)\s+(?:файл|заметку)\s+(?P<name>.+?)"
+    r"(?:\s+(?:с\s+текстом|текстом)\s+(?P<content>.+))?$"
+)
 
 # Russian folder names -> folder ids.
 FOLDER_WORDS: dict[str, str] = {
@@ -65,6 +78,9 @@ FOLDER_STOPWORDS = frozenset({"в", "во", "на", "мой", "мои", "моя"
 CITY_STOPWORDS = frozenset({"сейчас", "сегодня", "завтра", "на", "улице", "улица"})
 
 MAX_CITY_LENGTH = 100
+_NON_WORD_RE = re.compile(r"[^0-9a-zа-яё\s]+")
+_NON_WORD_DOTS_RE = re.compile(r"[^0-9a-zа-яё.\s]+")
+_SPACES_RE = re.compile(r"\s+")
 
 
 @dataclass(frozen=True)
@@ -105,6 +121,13 @@ class Router:
 
         for matcher in (self._match_time, self._match_weather, self._match_folder):
             result = matcher(normalized)
+            if result is not None:
+                return result
+        # Volume and file commands are matched on a lightly cleaned phrase:
+        # normalize() drops leading verbs («включи звук» -> «звук»), which would
+        # erase exactly the verb these templates need.
+        for matcher in (self._match_volume, self._match_create_file):
+            result = matcher(text)
             if result is not None:
                 return result
         return self._match_file(text)
@@ -183,6 +206,35 @@ class Router:
             return None
         return RouteResult("open_folder", {"folder_id": folder_id}, "folder", 1.0)
 
+    def _match_volume(self, text: str) -> RouteResult | None:
+        match = VOLUME_RE.match(_clean_command(text, keep_dots=False))
+        if not match:
+            return None
+        if match.group("set"):
+            level = int(match.group("level"))
+            if not 0 <= level <= 100:
+                return None
+            return RouteResult("set_volume", {"action": "set", "level": level}, "volume", 1.0)
+        for action in ("up", "down", "mute", "unmute"):
+            if match.group(action):
+                return RouteResult("set_volume", {"action": action}, "volume", 1.0)
+        return None
+
+    def _match_create_file(self, text: str) -> RouteResult | None:
+        match = CREATE_FILE_RE.match(_clean_command(text, keep_dots=True))
+        if not match:
+            return None
+        filename = match.group("name").strip().strip('"').strip("'")
+        if not filename:
+            return None
+        if "." not in filename:
+            filename += ".txt"
+        args: dict = {"filename": filename}
+        content = match.group("content")
+        if content:
+            args["content"] = content.strip().strip('"').strip("'")
+        return RouteResult("create_file", args, "create_file", 1.0)
+
     def _match_file(self, text: str) -> RouteResult:
         match = FILE_RE.match(normalize_keep_dots(text))
         if not match:
@@ -192,6 +244,26 @@ class Router:
         if not filename or folder_id is None:
             return _no_match()
         return RouteResult("open_file", {"folder_id": folder_id, "filename": filename}, "file", 1.0)
+
+
+#: Filler around a command: the wake word and politeness, never the verb.
+_COMMAND_FILLER = frozenset(
+    {"вокс", "vox", "ассистент", "ассистента", "будь", "добр", "добрый", "ка", "мне", "пожалуйста", "плиз", "пж"}
+)
+
+
+def _clean_command(text: str, *, keep_dots: bool) -> str:
+    """Lower-case a phrase, drop the wake word, keep the leading verb."""
+    if not isinstance(text, str):
+        return ""
+    value = text.casefold().replace("ё", "е")
+    value = (_NON_WORD_DOTS_RE if keep_dots else _NON_WORD_RE).sub(" ", value)
+    tokens = _SPACES_RE.sub(" ", value).strip().split()
+    while tokens and tokens[0] in _COMMAND_FILLER:
+        tokens.pop(0)
+    while tokens and tokens[-1] in _COMMAND_FILLER:
+        tokens.pop()
+    return " ".join(tokens)
 
 
 def _city_from(normalized: str) -> str | None:

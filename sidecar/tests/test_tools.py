@@ -300,4 +300,103 @@ def test_package_reexports_contract_names() -> None:
         "open_file",
         "get_time",
         "get_weather",
+        "set_volume",
+        "create_file",
     )
+
+
+# ------------------------------------------------------------------ v2: set_volume
+def _patch_volume(monkeypatch, result=(40, False)):
+    from voiceruna.tools import volume
+
+    calls: list[tuple] = []
+
+    def fake_apply(action, level=None):
+        calls.append((action, level))
+        return result
+
+    monkeypatch.setattr(volume, "apply", fake_apply)
+    return calls
+
+
+@pytest.mark.asyncio
+async def test_set_volume_actions(executor: ToolExecutor, monkeypatch) -> None:
+    calls = _patch_volume(monkeypatch, (50, False))
+
+    louder = await executor.execute("set_volume", {"action": "up"})
+    quieter = await executor.execute("set_volume", {"action": "down"})
+    mute = await executor.execute("set_volume", {"action": "mute"})
+    unmute = await executor.execute("set_volume", {"action": "unmute"})
+    exact = await executor.execute("set_volume", {"action": "set", "level": 50})
+
+    assert [r.ok for r in (louder, quieter, mute, unmute, exact)] == [True] * 5
+    assert louder.speech == "Сделал громче"
+    assert quieter.speech == "Сделал тише"
+    assert mute.speech == "Звук выключен"
+    assert unmute.speech == "Звук включён"
+    assert exact.speech == "Громкость 50%"
+    assert calls == [("up", None), ("down", None), ("mute", None), ("unmute", None), ("set", 50)]
+
+
+@pytest.mark.asyncio
+async def test_set_volume_rejects_bad_arguments(executor: ToolExecutor) -> None:
+    assert (await executor.execute("set_volume", {})).ok is False
+    assert (await executor.execute("set_volume", {"action": "louder"})).ok is False
+    assert (await executor.execute("set_volume", {"action": "set"})).ok is False
+    assert (await executor.execute("set_volume", {"action": "set", "level": 101})).ok is False
+    assert (await executor.execute("set_volume", {"action": "up", "level": 10})).ok is False
+
+
+@pytest.mark.asyncio
+async def test_set_volume_reports_unavailable_audio(executor: ToolExecutor, monkeypatch) -> None:
+    from voiceruna.tools import volume
+
+    def broken(action, level=None):
+        raise RuntimeError("no endpoint")
+
+    monkeypatch.setattr(volume, "apply", broken)
+
+    result = await executor.execute("set_volume", {"action": "mute"})
+
+    assert result.ok is False
+    assert result.speech == "Не могу изменить громкость"
+
+
+# ---------------------------------------------------------------- v2: create_file
+@pytest.mark.asyncio
+async def test_create_file_stays_inside_the_sandbox(executor: ToolExecutor, tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+
+    result = await executor.execute("create_file", {"filename": "заметка.txt", "content": "привет"})
+
+    path = tmp_path / "Documents" / "VoiceRunaCore" / "заметка.txt"
+    assert result.ok is True
+    assert path.read_text(encoding="utf-8") == "привет"
+    assert path.name in result.speech
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "filename",
+    ["../evil.txt", "sub/note.txt", "C:\\Windows\\x.txt", "evil.exe", "..\\note.md"],
+)
+async def test_create_file_refuses_paths_and_foreign_extensions(
+    executor: ToolExecutor, tmp_path, monkeypatch, filename: str
+) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+
+    result = await executor.execute("create_file", {"filename": filename})
+
+    assert result.ok is False
+    assert result.error == "refused"
+
+
+@pytest.mark.asyncio
+async def test_create_file_does_not_overwrite(executor: ToolExecutor, tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    await executor.execute("create_file", {"filename": "заметка.md"})
+
+    again = await executor.execute("create_file", {"filename": "заметка.md"})
+
+    assert again.ok is False
+    assert "уже существует" in again.speech

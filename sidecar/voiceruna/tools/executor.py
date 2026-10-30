@@ -20,7 +20,9 @@ from typing import TYPE_CHECKING, Any
 from .. import security
 from ..logging_setup import get_logger
 from ..security import ValidationError
+from . import files, volume
 from .base import ToolResult
+from .registry import REGISTRY, register_tool
 from .weather import WeatherService
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -154,13 +156,17 @@ class ToolExecutor:
                     },
                 },
             },
-        ]
+        ] + REGISTRY.specs()
 
     # ------------------------------------------------------------------ dispatch
     async def execute(self, name: str, args: dict) -> ToolResult:
         """Validate and run one tool call; never raises."""
         try:
-            if not isinstance(name, str) or name not in TOOL_NAMES:
+            if not isinstance(name, str):
+                return self._refuse("имя инструмента должно быть строкой")
+            if REGISTRY.has(name):
+                return await REGISTRY.run(name, self, args or {})
+            if name not in TOOL_NAMES:
                 return self._refuse(f"неизвестный инструмент: {name!r}")
             if args is None:
                 args = {}
@@ -328,3 +334,114 @@ class ToolExecutor:
     def _phrase(self) -> str:
         phrase = self._config.get("errors.tool_refused_phrase", _FALLBACK_PHRASE)
         return str(phrase) if isinstance(phrase, str) and phrase.strip() else _FALLBACK_PHRASE
+
+# ---------------------------------------------------------------------- v2 tools
+# Registered through ToolRegistry: one spec + one handler per tool.
+_VOLUME_ACTIONS = {"up", "down", "mute", "unmute", "set"}
+
+
+async def _set_volume_tool(executor: ToolExecutor, args: dict[str, Any]) -> ToolResult:
+    executor._reject_unknown_args(args, {"action", "level"})
+    action = args.get("action")
+    if not isinstance(action, str) or action.strip().lower() not in _VOLUME_ACTIONS:
+        raise ValidationError("action: up, down, mute, unmute или set")
+    action = action.strip().lower()
+
+    level = args.get("level")
+    if action == "set":
+        if not isinstance(level, int) or isinstance(level, bool) or not 0 <= level <= 100:
+            raise ValidationError("level: целое число от 0 до 100")
+    elif level is not None:
+        raise ValidationError("level допустим только для action=set")
+
+    try:
+        percent, muted = await asyncio.to_thread(volume.apply, action, level)
+    except Exception as exc:  # noqa: BLE001 - audio driver may vanish
+        logger.warning("громкость недоступна: %s", type(exc).__name__)
+        return ToolResult(
+            ok=False,
+            speech="Не могу изменить громкость",
+            error=f"volume_unavailable: {type(exc).__name__}",
+        )
+
+    if action == "mute":
+        speech = "Звук выключен"
+    elif action == "unmute":
+        speech = "Звук включён"
+    elif action == "set":
+        speech = f"Громкость {percent}%"
+    elif action == "up":
+        speech = "Сделал громче"
+    else:
+        speech = "Сделал тише"
+    return ToolResult(ok=True, speech=speech, payload={"percent": percent, "muted": muted})
+
+
+async def _create_file_tool(executor: ToolExecutor, args: dict[str, Any]) -> ToolResult:
+    executor._reject_unknown_args(args, {"filename", "content"})
+    filename = args.get("filename")
+    if not isinstance(filename, str) or not filename.strip():
+        raise ValidationError("не задано имя файла")
+    content = args.get("content")
+    if content is not None and not isinstance(content, str):
+        raise ValidationError("content должен быть строкой")
+    try:
+        path = await asyncio.to_thread(files.create_text_file, filename, content)
+    except ValueError as exc:
+        return ToolResult(ok=False, speech=str(exc), error="refused")
+    except OSError as exc:
+        logger.warning("не удалось создать файл: %s", type(exc).__name__)
+        return ToolResult(ok=False, speech="Не удалось создать файл", error="os_error")
+    return ToolResult(
+        ok=True,
+        speech=f"Создал файл {path.name}",
+        payload={"filename": path.name, "path": str(path)},
+    )
+
+
+register_tool(
+    "set_volume",
+    "Change the Windows output volume: up, down, mute, unmute or set an exact level.",
+    {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["up", "down", "mute", "unmute", "set"],
+                "description": "up/down change by 10%; set needs level.",
+            },
+            "level": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "Target volume in percent (action=set only).",
+            },
+        },
+        "required": ["action"],
+        "additionalProperties": False,
+    },
+    _set_volume_tool,
+)
+
+register_tool(
+    "create_file",
+    "Create a .txt or .md file inside %USERPROFILE%\\Documents\\VoiceRunaCore.",
+    {
+        "type": "object",
+        "properties": {
+            "filename": {
+                "type": "string",
+                "description": "Bare file name with a .txt or .md suffix, no path.",
+            },
+            "content": {
+                "type": "string",
+                "description": "Optional text to put in the file.",
+            },
+        },
+        "required": ["filename"],
+        "additionalProperties": False,
+    },
+    _create_file_tool,
+)
+
+TOOL_NAMES = (*TOOL_NAMES, *REGISTRY.names())

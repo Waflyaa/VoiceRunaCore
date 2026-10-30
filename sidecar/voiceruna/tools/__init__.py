@@ -1,4 +1,4 @@
-"""Five tools (TZ §8) and the executor that validates their arguments."""
+"""Tools (TZ §8, plus v2 set_volume/create_file) and their executor."""
 
 from __future__ import annotations
 
