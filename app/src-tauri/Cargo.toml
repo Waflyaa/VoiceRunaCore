@@ -1,6 +1,6 @@
 [package]
 name = "voiceruna"
-version = "0.1.0"
+version = "1.1.0"
 description = "VoiceRunaCore — голосовой помощник для Windows: оболочка на Tauri 2"
 authors = ["VoiceRunaCore"]
 edition = "2021"

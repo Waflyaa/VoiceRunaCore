@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voicerunacore-sidecar"
-version = "0.1.0"
+version = "1.1.0"
 description = "VoiceRunaCore voice assistant sidecar (ears, brain, hands, voice)"
 requires-python = ">=3.12,<3.13"
 dependencies = [

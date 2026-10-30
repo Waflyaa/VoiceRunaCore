@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Web
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import paths
+from . import __version__, paths
 from .config import ConfigManager
 from .events import state_event
 from .logging_setup import get_logger, setup_logging
@@ -81,7 +81,7 @@ def create_app(token: str, config_path: Any = None) -> FastAPI:
             await runtime.shutdown()
             await hub.stop()
 
-    app = FastAPI(title="VoiceRunaCore sidecar", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="VoiceRunaCore sidecar", version=__version__, lifespan=lifespan)
     app.state.token = token
     app.state.config = config
     app.state.state = state
@@ -109,7 +109,7 @@ def create_app(token: str, config_path: Any = None) -> FastAPI:
     # ------------------------------------------------------------------ liveness
     @app.get("/health")
     async def health() -> dict[str, Any]:
-        return {"status": "ok", "version": "0.1.0", "state": state.state}
+        return {"status": "ok", "version": __version__, "state": state.state}
 
     # ------------------------------------------------------------------ dialogue
     @app.post("/command", dependencies=[Depends(require_token)])
@@ -306,7 +306,7 @@ def create_app(token: str, config_path: Any = None) -> FastAPI:
     async def diagnostics() -> dict[str, Any]:
         """Everything needed to explain "nothing happens" without reading logs."""
         data: dict[str, Any] = {
-            "version": "0.1.0",
+            "version": __version__,
             "state": state.state,
             "paused": runtime.paused,
             "paths": {
