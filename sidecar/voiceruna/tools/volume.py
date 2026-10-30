@@ -16,17 +16,31 @@ log = logging.getLogger(__name__)
 STEP_PERCENT = 10
 
 
+def _speakers():
+    from pycaw.pycaw import AudioUtilities
+
+    return AudioUtilities.GetSpeakers()
+
+
 def _endpoint():
     """Return the IAudioEndpointVolume interface of the default speakers."""
+    device = _speakers()
+    endpoint = getattr(device, "EndpointVolume", None)
+    if endpoint is not None:
+        return endpoint
+    # pycaw < 2025: the device must be activated explicitly.
     from comtypes import CLSCTX_ALL
-    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+    from pycaw.pycaw import IAudioEndpointVolume
 
-    devices = AudioUtilities.GetSpeakers()
-    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+    interface = device.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
     return interface.QueryInterface(IAudioEndpointVolume)
 
 
 def current_percent() -> int:
+    device = _speakers()
+    value = getattr(device, "volume_percent", None)
+    if value is not None:
+        return int(round(float(value)))
     return int(round(float(_endpoint().GetMasterVolumeLevelScalar()) * 100))
 
 
@@ -36,6 +50,10 @@ def is_muted() -> bool:
 
 def set_percent(percent: int) -> int:
     percent = max(0, min(100, int(percent)))
+    device = _speakers()
+    if hasattr(device, "volume_percent"):
+        device.volume_percent = percent
+        return current_percent()
     _endpoint().SetMasterVolumeLevelScalar(percent / 100.0, None)
     return percent
 
@@ -54,7 +72,6 @@ def apply(action: str, level: int | None = None) -> tuple[int, bool]:
     if action == "up":
         return change_percent(STEP_PERCENT), False
     if action == "down":
-        # Raising the level while muted is pointless: unmute as well.
         return change_percent(-STEP_PERCENT), False
     if action == "mute":
         set_muted(True)

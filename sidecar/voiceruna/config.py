@@ -252,7 +252,7 @@ DEFAULTS: dict[str, Any] = {
     # Diagnostics for "it does not hear me": the last recording lands in logs/.
     "debug": {"save_audio": False, "raw_seconds": 10},
     # Bumped when a default has to be migrated once; see _migrate().
-    "config_version": 2,
+    "config_version": 3,
 }
 
 # Sections whose values are plain dicts and therefore merged recursively.
@@ -360,20 +360,35 @@ class ConfigManager:
 
         v1 -> v2: tts.engine was "edge" by default. offline SAPI fallback is now
         the sensible default ("auto"), so an untouched v1 file is upgraded.
-        A later explicit choice in the settings editor is preserved, because the
-        version is bumped after the first migration.
+        v2 -> v3: endpointing moved from the old "stop after 0.8 s" default to
+        1.5 s of real silence and 30 s phrases; the follow-up window appears.
+        Untouched files are upgraded, a later explicit choice in the settings
+        editor is preserved (the version is bumped after the first migration).
         """
         try:
             version = int(raw.get("config_version", 1) or 1)
         except (TypeError, ValueError):
             version = 1
-        if version >= 2:
-            return False
-        tts = self._data.get("tts")
-        if isinstance(tts, dict) and str(tts.get("engine", "")).lower() == "edge":
-            tts["engine"] = "auto"
-        self._data["config_version"] = 2
-        return True
+        changed = False
+        if version < 2:
+            tts = self._data.get("tts")
+            if isinstance(tts, dict) and str(tts.get("engine", "")).lower() == "edge":
+                tts["engine"] = "auto"
+            changed = True
+        if version < 3:
+            vad = self._data.get("vad")
+            if isinstance(vad, dict):
+                if float(vad.get("silence_ms", 0) or 0) == 800.0:
+                    vad["silence_ms"] = 1500
+                if float(vad.get("max_utterance_sec", 0) or 0) == 12.0:
+                    vad["max_utterance_sec"] = 30
+            wake = self._data.get("wakeword")
+            if isinstance(wake, dict) and "followup_window_sec" not in wake:
+                wake["followup_window_sec"] = 5
+            changed = True
+        if changed:
+            self._data["config_version"] = 3
+        return changed
 
     def save(self) -> None:
         with self._lock:

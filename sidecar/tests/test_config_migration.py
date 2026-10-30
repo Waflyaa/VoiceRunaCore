@@ -20,7 +20,7 @@ def test_v1_config_with_edge_engine_is_upgraded_to_auto(tmp_path: Path):
     data = manager.load()
 
     assert data["tts"]["engine"] == "auto"
-    assert data["config_version"] == 2
+    assert data["config_version"] == 3
     assert data["llm"]["timeout_sec"] == 15, "остальные значения не трогаем"
     saved = json.loads(path.read_text(encoding="utf-8"))
     assert saved["tts"]["engine"] == "auto"
@@ -34,7 +34,7 @@ def test_explicit_engine_choice_survives_the_migration(tmp_path: Path):
     data = manager.load()
 
     assert data["tts"]["engine"] == "edge"
-    assert data["config_version"] == 2
+    assert data["config_version"] == 3
 
 
 def test_sapi_choice_is_never_migrated(tmp_path: Path):
@@ -45,7 +45,7 @@ def test_sapi_choice_is_never_migrated(tmp_path: Path):
     data = manager.load()
 
     assert data["tts"]["engine"] == "sapi"
-    assert data["config_version"] == 2
+    assert data["config_version"] == 3
 
 
 def test_mojibake_phrases_are_repaired_on_load(tmp_path, monkeypatch):
@@ -129,3 +129,27 @@ def test_unknown_keys_are_still_dropped(tmp_path, monkeypatch):
     cfg.load()
 
     assert cfg.get("mystery", None) is None
+
+def test_v2_endpointing_defaults_are_upgraded(tmp_path: Path):
+    path = tmp_path / "config.json"
+    _write(path, {"config_version": 2, "vad": {"silence_ms": 800, "max_utterance_sec": 12}})
+
+    manager = ConfigManager(path)
+    data = manager.load()
+
+    assert data["vad"]["silence_ms"] == 1500
+    assert data["vad"]["max_utterance_sec"] == 30
+    assert data["wakeword"]["followup_window_sec"] == 5
+    assert data["config_version"] == 3
+
+
+def test_explicit_endpointing_is_not_migrated(tmp_path: Path):
+    path = tmp_path / "config.json"
+    _write(path, {"config_version": 2, "vad": {"silence_ms": 2000, "max_utterance_sec": 20}})
+
+    manager = ConfigManager(path)
+    data = manager.load()
+
+    assert data["vad"]["silence_ms"] == 2000
+    assert data["vad"]["max_utterance_sec"] == 20
+
