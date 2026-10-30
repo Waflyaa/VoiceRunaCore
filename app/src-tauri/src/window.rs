@@ -60,6 +60,26 @@ pub fn show_main(app: &AppHandle) {
     }
 }
 
+/// Toggle for the global hotkey (v2): opened -> hide to tray, hidden -> show.
+///
+/// Returns true when the window is visible after the call, so the caller only
+/// arms listening when the window actually appeared.
+pub fn toggle_main(app: &AppHandle) -> bool {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+        let visible = window.is_visible().unwrap_or(false);
+        let minimized = window.is_minimized().unwrap_or(false);
+        if visible && !minimized {
+            let _ = window.hide();
+            return false;
+        }
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return true;
+    }
+    false
+}
+
 /// Скрыть окно в трей (крестик, Esc).
 pub fn hide_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {

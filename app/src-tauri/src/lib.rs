@@ -128,7 +128,12 @@ fn on_hotkey(app: &AppHandle, _shortcut: &Shortcut, event: ShortcutEvent) {
     if event.state() != ShortcutState::Pressed {
         return;
     }
-    window::show_main(app);
+    // v2: the hotkey is a toggle - a visible window hides to the tray, and
+    // only the opening press starts listening (a hiding press must not).
+    let shown = window::toggle_main(app);
+    if !shown {
+        return;
+    }
     let app = app.clone();
     std::thread::spawn(move || {
         if let Err(err) = sidecar::request(&app, "POST", "/listen", None) {

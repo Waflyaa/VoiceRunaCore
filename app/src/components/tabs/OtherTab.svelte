@@ -36,6 +36,16 @@
   </section>
 
   <section class="group">
+    <h3 class="section-title">Окно и хоткей</h3>
+    <p class="section-hint">Глобальная клавиша открывает окно, повторное нажатие — сворачивает в трей.</p>
+    <label class="field">
+      <span class="field__label">Хоткей</span>
+      <input class="field__input" bind:value={config.hotkey.activate} placeholder="Ctrl+Alt+V" />
+      <span class="field__hint">Формат: Ctrl+Alt+V, Ctrl+Shift+Space. Применяется после перезапуска приложения.</span>
+    </label>
+  </section>
+
+  <section class="group">
     <h3 class="section-title">Погода</h3>
     <label class="field">
       <span class="field__label">Город по умолчанию</span>
