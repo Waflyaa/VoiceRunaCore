@@ -94,3 +94,11 @@ def seed_test_apps(directory) -> None:
 def _allow_test_games(monkeypatch):
     """Test registries contain dota2/factorio; the app strips them in production."""
     monkeypatch.setenv("VOX_ALLOW_GAMES", "1")
+
+
+@pytest.fixture(autouse=True)
+def _load_test_plugins(config):
+    """Register plugin tools for every test (the microkernel does it at startup)."""
+    from voiceruna.plugins.manager import PluginManager
+
+    PluginManager(config).load()

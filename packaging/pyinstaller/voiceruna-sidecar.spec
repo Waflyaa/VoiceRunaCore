@@ -112,6 +112,12 @@ for package in (
     binaries += pkg_binaries
     hiddenimports += pkg_hiddenimports
 
+# Microkernel plugins are plain source folders imported at runtime from
+# <resource>/plugins, so they ship as data rather than frozen modules.
+PLUGINS_DIR = REPO_ROOT / "plugins"
+if PLUGINS_DIR.is_dir():
+    datas.append((str(PLUGINS_DIR), "plugins"))
+
 a = Analysis(
     [str(ENTRY)],
     pathex=[str(SIDECAR_SRC)],

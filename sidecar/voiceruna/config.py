@@ -145,6 +145,8 @@ DEFAULTS: dict[str, Any] = {
         "reset_timeout_sec": 120,
         "system_prompt_extra": "",
     },
+    # Microkernel plugins enabled at startup (folders under plugins/).
+    "enabled_plugins": ["apps_launcher", "system_tools", "basic_info"],
     "stt": {
         "model": "small",
         "device": "cpu",

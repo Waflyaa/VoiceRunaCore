@@ -15,12 +15,12 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from ..logging_setup import get_logger
-from ..security import normalize_alias
-from .base import ToolResult
+from voiceruna.logging_setup import get_logger
+from voiceruna.security import normalize_alias
+from voiceruna.tools.base import ToolResult
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..config import ConfigManager
+    from voiceruna.config import ConfigManager
 
 __all__ = ["WeatherService"]
 

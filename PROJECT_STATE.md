@@ -64,6 +64,19 @@
 
 ---
 
+## 1d. Микроядро и плагины (new_idea)
+
+- Плагины: plugins/<name>/plugin.py, базовый класс sidecar/voiceruna/plugins/base.py,
+  менеджер sidecar/voiceruna/plugins/manager.py.
+- Список включённых плагинов: enabled_plugins в config.json (по умолчанию
+  apps_launcher, system_tools, basic_info).
+- Тулзы: apps_launcher — launch_application/open_folder/open_file; system_tools —
+  set_volume/create_file (песочница); basic_info — get_time/get_weather.
+- tools/executor.py теперь только транспорт (валидация + ToolRegistry); реализации
+  ушли в плагины; plugins/ собирается в установщик как data.
+
+---
+
 ## 2. Архитектура
 
 Tauri 2 (Rust) + Svelte 5/Vite + Python 3.12/FastAPI sidecar (два процесса, REST 127.0.0.1 + токен).

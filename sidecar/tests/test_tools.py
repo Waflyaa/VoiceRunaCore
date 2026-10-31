@@ -14,7 +14,12 @@ from pathlib import Path
 import pytest
 
 from voiceruna import security
-from voiceruna.tools import TOOL_NAMES, ToolExecutor, ToolResult, WeatherService
+from voiceruna.tools import ToolExecutor, ToolResult, tool_names
+from pathlib import Path
+from voiceruna.plugins.base import load_module
+
+_WEATHER = load_module(Path(__file__).resolve().parents[2] / 'plugins' / 'basic_info' / 'weather.py', 'test_tools_weather')
+WeatherService = _WEATHER.WeatherService
 
 
 @pytest.fixture()
@@ -39,25 +44,28 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple]:
 
 
 # --------------------------------------------------------------------------- specs
-def test_specs_are_exactly_the_five_tools(executor: ToolExecutor, apps) -> None:
+def test_specs_come_from_the_enabled_plugins(executor: ToolExecutor, apps) -> None:
     specs = executor.specs()
+    by_name = {spec["function"]["name"]: spec["function"]["parameters"] for spec in specs}
 
-    assert [spec["function"]["name"] for spec in specs] == list(TOOL_NAMES)
+    assert [spec["function"]["name"] for spec in specs] == list(tool_names())
     assert all(spec["type"] == "function" for spec in specs)
+    assert set(by_name) == {
+        "launch_application", "open_folder", "open_file",
+        "set_volume", "create_file", "get_time", "get_weather",
+    }
 
-    launch = specs[0]["function"]["parameters"]
+    launch = by_name["launch_application"]
     assert launch["properties"]["application_id"]["enum"] == apps.ids()
     assert launch["required"] == ["application_id"]
 
-    folder = specs[1]["function"]["parameters"]
-    assert folder["properties"]["folder_id"]["enum"] == ["desktop", "downloads", "documents"]
+    assert by_name["open_folder"]["required"] == ["folder_id"]
+    assert sorted(by_name["open_file"]["required"]) == ["filename", "folder_id"]
+    assert by_name["set_volume"]["required"] == ["action"]
+    assert by_name["create_file"]["required"] == ["filename"]
+    assert by_name["get_time"]["required"] == []
 
-    open_file = specs[2]["function"]["parameters"]
-    assert sorted(open_file["required"]) == ["filename", "folder_id"]
-
-    assert specs[3]["function"]["parameters"]["required"] == []
-
-    weather = specs[4]["function"]["parameters"]
+    weather = by_name["get_weather"]
     assert weather["required"] == []
     assert weather["properties"]["city"]["maxLength"] == 100
 
@@ -259,15 +267,21 @@ async def test_get_time_rejects_arguments(executor: ToolExecutor) -> None:
 
 # --------------------------------------------------------------------------- weather
 async def test_get_weather_delegates_to_service(
-    executor: ToolExecutor, monkeypatch: pytest.MonkeyPatch
+    executor: ToolExecutor, config, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from voiceruna.plugins.manager import PluginManager
+
+    manager = PluginManager(config)
+    manager.load()
+    plugin = manager.plugins["basic_info"]
+    service = plugin._weather()
     seen: list[str | None] = []
 
-    async def fake_forecast(self, city):
+    async def fake_forecast(city):
         seen.append(city)
         return ToolResult(ok=True, speech=f"погода: {city}")
 
-    monkeypatch.setattr(WeatherService, "forecast", fake_forecast)
+    monkeypatch.setattr(service, "forecast", fake_forecast)
 
     result = await executor.execute("get_weather", {"city": "Москва"})
     default = await executor.execute("get_weather", {})
@@ -287,27 +301,30 @@ async def test_get_weather_validates_arguments(executor: ToolExecutor) -> None:
 def test_package_reexports_contract_names() -> None:
     from voiceruna.tools import ToolExecutor as PackageExecutor
     from voiceruna.tools import ToolResult as PackageResult
-    from voiceruna.tools import WeatherService as PackageWeather
+    from voiceruna.tools import tool_names as package_tool_names
     from voiceruna.tools.base import ToolResult as BaseResult
     from voiceruna.tools.executor import ToolExecutor as ModuleExecutor
 
     assert PackageExecutor is ModuleExecutor
     assert PackageResult is BaseResult
-    assert PackageWeather is WeatherService
-    assert TOOL_NAMES == (
+    assert set(package_tool_names()) == {
         "launch_application",
         "open_folder",
-        "open_file",
         "get_time",
         "get_weather",
         "set_volume",
         "create_file",
-    )
+        "open_file",
+    }
 
 
 # ------------------------------------------------------------------ v2: set_volume
-def _patch_volume(monkeypatch, result=(40, False)):
-    from voiceruna.tools import volume
+def _patch_volume(config, monkeypatch, result=(40, False)):
+    from voiceruna.plugins.manager import PluginManager
+
+    manager = PluginManager(config)
+    manager.load()
+    volume_module = manager.plugins["system_tools"]._volume_module()
 
     calls: list[tuple] = []
 
@@ -315,13 +332,13 @@ def _patch_volume(monkeypatch, result=(40, False)):
         calls.append((action, level))
         return result
 
-    monkeypatch.setattr(volume, "apply", fake_apply)
+    monkeypatch.setattr(volume_module, "apply", fake_apply)
     return calls
 
 
 @pytest.mark.asyncio
-async def test_set_volume_actions(executor: ToolExecutor, monkeypatch) -> None:
-    calls = _patch_volume(monkeypatch, (50, False))
+async def test_set_volume_actions(executor: ToolExecutor, config, monkeypatch) -> None:
+    calls = _patch_volume(config, monkeypatch, (50, False))
 
     louder = await executor.execute("set_volume", {"action": "up"})
     quieter = await executor.execute("set_volume", {"action": "down"})
@@ -348,13 +365,17 @@ async def test_set_volume_rejects_bad_arguments(executor: ToolExecutor) -> None:
 
 
 @pytest.mark.asyncio
-async def test_set_volume_reports_unavailable_audio(executor: ToolExecutor, monkeypatch) -> None:
-    from voiceruna.tools import volume
+async def test_set_volume_reports_unavailable_audio(executor: ToolExecutor, config, monkeypatch) -> None:
+    from voiceruna.plugins.manager import PluginManager
+
+    manager = PluginManager(config)
+    manager.load()
+    volume_module = manager.plugins["system_tools"]._volume_module()
 
     def broken(action, level=None):
         raise RuntimeError("no endpoint")
 
-    monkeypatch.setattr(volume, "apply", broken)
+    monkeypatch.setattr(volume_module, "apply", broken)
 
     result = await executor.execute("set_volume", {"action": "mute"})
 

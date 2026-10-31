@@ -70,6 +70,18 @@ def create_app(token: str, config_path: Any = None) -> FastAPI:
     state.subscribe(lambda value: hub.emit(state_event(value)))
     runtime = AssistantRuntime(config, state, hub.emit)
 
+    # Microkernel: load enabled plugins and register their tools before the
+    # runtime/executor build their tool schema.
+    from .plugins.manager import PluginManager
+
+    plugin_manager = PluginManager(config)
+    loaded_tools = plugin_manager.load()
+    log.info(
+        "plugins loaded: %s (tools: %s)",
+        ", ".join(plugin_manager.plugins) or "none",
+        ", ".join(loaded_tools) or "none",
+    )
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Always keep the human-readable feature list in sync with this build.

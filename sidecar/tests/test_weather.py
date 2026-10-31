@@ -7,8 +7,13 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from pathlib import Path
 
-from voiceruna.tools.weather import WeatherService
+from voiceruna.plugins.base import load_module
+
+_WEATHER_PATH = Path(__file__).resolve().parents[2] / "plugins" / "basic_info" / "weather.py"
+_WEATHER = load_module(_WEATHER_PATH, "test_weather_impl")
+WeatherService = _WEATHER.WeatherService
 
 GEOCODING_HOST = "geocoding-api.open-meteo.com"
 FORECAST_HOST = "api.open-meteo.com"
@@ -367,7 +372,8 @@ def test_describe(code: int, expected: str) -> None:
 
 
 def test_prepositional_forms() -> None:
-    from voiceruna.tools.weather import prepositional
+    from test_weather import _WEATHER as impl
+    prepositional = impl.prepositional
 
     assert prepositional("Сургут") == "Сургуте"
     assert prepositional("Москва") == "Москве"

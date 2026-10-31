@@ -1,9 +1,9 @@
-"""Tools (TZ §8, plus v2 set_volume/create_file) and their executor."""
+"""Tool transport (executor) and the plugin ToolRegistry."""
 
 from __future__ import annotations
 
 from .base import ToolResult
-from .executor import TOOL_NAMES, ToolExecutor
-from .weather import WeatherService
+from .executor import ToolExecutor, tool_names
+from .registry import REGISTRY, ToolRegistry, register_tool
 
-__all__ = ["ToolResult", "ToolExecutor", "WeatherService", "TOOL_NAMES"]
+__all__ = ["ToolResult", "ToolExecutor", "tool_names", "REGISTRY", "ToolRegistry", "register_tool"]
