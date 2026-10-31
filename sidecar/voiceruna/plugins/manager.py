@@ -8,13 +8,14 @@ configured order) and registers their tools in the global ToolRegistry.
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 from ..logging_setup import get_logger
-from ..paths import resource_dir
+from ..paths import data_dir, resource_dir
 from ..tools.registry import REGISTRY, register_tool
 from .base import BasePlugin
 
@@ -34,9 +35,14 @@ DEFAULT_PLUGINS = ["apps_launcher", "system_tools", "basic_info"]
 
 
 def plugins_dir(explicit: str | Path | None = None) -> Path:
-    """Where plugin folders live: repo/plugins in dev, bundled plugins/ frozen."""
+    """User plugin folder: %APPDATA%/VoiceRunaCore/plugins (the only load path)."""
     if explicit is not None:
         return Path(explicit)
+    return data_dir() / "plugins"
+
+
+def bundled_plugins_dir() -> Path:
+    """Read-only defaults shipped with the installer (copied on first start)."""
     bundled = resource_dir() / "plugins"
     if bundled.is_dir():
         return bundled
@@ -46,9 +52,17 @@ def plugins_dir(explicit: str | Path | None = None) -> Path:
 class PluginManager:
     """Loads enabled plugins and publishes their tools through ToolRegistry."""
 
-    def __init__(self, config: Any, directory: str | Path | None = None, app: Any = None) -> None:
+    def __init__(
+        self,
+        config: Any,
+        directory: str | Path | None = None,
+        app: Any = None,
+        bundled: str | Path | None = None,
+    ) -> None:
         self._config = config
         self._dir = plugins_dir(directory)
+        self._bundled = Path(bundled) if bundled is not None else bundled_plugins_dir()
+        self._bootstrap = directory is None
         self._app = app
         self.plugins: dict[str, BasePlugin] = {}
         self.tool_names: list[str] = []
@@ -62,6 +76,36 @@ class PluginManager:
         if not isinstance(raw, list) or not raw:
             return list(DEFAULT_PLUGINS)
         return [str(item).strip() for item in raw if str(item).strip()]
+
+    def bootstrap(self) -> list[str]:
+        """Copy the bundled default plugins into the data folder once.
+
+        Returns the plugin names that were copied. A folder with at least one
+        plugin.py is considered initialised, so user edits are never overwritten.
+        """
+        if not self._bootstrap:
+            return []
+        try:
+            self._dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:  # pragma: no cover - disk problems
+            log.warning("cannot create plugin folder %s: %s", self._dir, exc)
+            return []
+        if any((entry / "plugin.py").is_file() for entry in self._dir.iterdir() if entry.is_dir()):
+            return []
+        copied: list[str] = []
+        for entry in sorted(self._bundled.iterdir()) if self._bundled.is_dir() else []:
+            source = entry / "plugin.py"
+            if not entry.is_dir() or not source.is_file():
+                continue
+            target = self._dir / entry.name
+            try:
+                shutil.copytree(entry, target, dirs_exist_ok=True)
+                copied.append(entry.name)
+            except OSError as exc:  # pragma: no cover
+                log.warning("cannot copy plugin %s: %s", entry.name, exc)
+        if copied:
+            log.info("bootstrap: default plugins copied to %s: %s", self._dir, ", ".join(copied))
+        return copied
 
     def discover(self) -> list[str]:
         """Folders with a plugin.py, sorted by name."""
@@ -153,6 +197,7 @@ class PluginManager:
 
     def load(self, enabled: list[str] | None = None) -> list[str]:
         """Load the enabled plugins (config order) and return their tool names."""
+        self.bootstrap()
         REGISTRY.clear()
         self.plugins.clear()
         self.tool_names.clear()

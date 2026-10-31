@@ -87,6 +87,18 @@
 
 ---
 
+## 1f. Динамические плагины из AppData (new_idea)
+
+- Плагины загружаются только из %APPDATA%\VoiceRunaCore\plugins.
+- Первый запуск (bootstrap): если папка пуста, PluginManager копирует туда
+  дефолтные plugins (apps_launcher, system_tools, basic_info) из ресурсов
+  установщика; дальше они читаются только из AppData.
+- Пользователь может добавить свою папку с plugin.py — она подхватится при
+  старте (при условии, что имя есть в enabled_plugins; иначе появится в каталоге
+  выключенной).
+
+---
+
 ## 2. Архитектура
 
 Tauri 2 (Rust) + Svelte 5/Vite + Python 3.12/FastAPI sidecar (два процесса, REST 127.0.0.1 + токен).
