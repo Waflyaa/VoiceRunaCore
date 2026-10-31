@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import time
 from collections import deque
 from typing import Any
 
 from . import paths
 from .apps import AppsRegistry
+from . import abilities
 from .config import ConfigManager
 from .events import (
     EventSink,
@@ -32,6 +34,21 @@ from .tools.executor import ToolExecutor
 from .voice.pipeline import VoicePipeline
 
 log = get_logger("runtime")
+
+#: "What can you do?" is answered with a card, not by reading the file aloud.
+_ABILITIES_RE = re.compile(
+    r"\b(?:"
+    r"что\s+ты\s+умеешь|что\s+умеешь|"
+    r"какие\s+(?:у\s+тебя\s+)?(?:есть\s+)?команды|"
+    r"список\s+возможностей|твои\s+возможности|твои\s+команды|"
+    r"что\s+ты\s+можешь|what\s+can\s+you\s+do"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_abilities_request(text: str) -> bool:
+    return bool(_ABILITIES_RE.search(text or ""))
 
 
 class AssistantRuntime:
@@ -183,10 +200,24 @@ class AssistantRuntime:
             # speaking), so a raised provider call used to leave the assistant
             # permanently deaf until the app was restarted.
             spoken = False
+            wants_abilities = _is_abilities_request(text)
             try:
-                answer = await self._respond(text)
+                if wants_abilities:
+                    answer = self._abilities_answer()
+                    try:
+                        abilities.ensure_files()
+                    except OSError:
+                        log.warning("cannot refresh abilities files", exc_info=True)
+                else:
+                    answer = await self._respond(text)
                 self._remember("assistant", answer)
-                self._emit(answer_event(answer, replaced))
+                self._emit(
+                    answer_event(
+                        answer,
+                        replaced,
+                        action="open_abilities" if wants_abilities else None,
+                    )
+                )
 
                 await self._speak(answer)
                 spoken = bool(answer.strip())
@@ -346,6 +377,11 @@ class AssistantRuntime:
     # ------------------------------------------------------------------ helpers
     def _phrase(self, key: str) -> str:
         return str(self._config.get(f"errors.{key}", ""))
+
+    def _abilities_answer(self) -> str:
+        """Short spoken answer for "what can you do"; the card has the details."""
+        phrase = str(self._config.get("errors.abilities_phrase", "") or "").strip()
+        return phrase or "Я скинул список своих возможностей в чат"
 
     async def _on_utterance(self, text: str) -> None:
         try:

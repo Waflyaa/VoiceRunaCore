@@ -41,6 +41,7 @@ pub fn run() {
             commands::get_connection,
             commands::hide_window,
             commands::open_config_folder,
+            commands::open_abilities,
             commands::restart_sidecar,
             commands::sidecar_status,
         ])

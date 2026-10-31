@@ -117,6 +117,7 @@ export interface ErrorPhrases {
   tool_refused_phrase: string;
   no_connection_phrase: string;
   mic_phrase: string;
+  abilities_phrase: string;
 }
 
 export interface AudioConfig {
@@ -285,6 +286,8 @@ export interface ChatMessage {
   source?: 'voice' | 'window';
   toolOk?: boolean;
   tool?: ToolCallInfo;
+  /** Interactive card to render instead of plain assistant text. */
+  action?: 'open_abilities';
 }
 
 export type ToastKind = 'info' | 'success' | 'error';
@@ -305,7 +308,7 @@ export interface DownloadState {
 export type WsEvent =
   | { type: 'state'; state: VoxState }
   | { type: 'transcript'; text: string; source: 'voice' | 'window' }
-  | { type: 'answer'; text: string; replaced_transcript?: string | null }
+  | { type: 'answer'; text: string; replaced_transcript?: string | null; action?: string }
   | { type: 'tool_call'; name: string; args?: Record<string, unknown>; ok: boolean }
   | { type: 'error'; message: string; kind?: string }
   | { type: 'download_progress'; stage?: string; percent?: number; message?: string };

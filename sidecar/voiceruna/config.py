@@ -238,6 +238,7 @@ DEFAULTS: dict[str, Any] = {
     "errors": {
         "stt_failed_phrase": "Не расслышал, повтори",
         "not_understood_phrase": "Я пока не умею это делать",
+        "abilities_phrase": "Я скинул список своих возможностей в чат",
         "tool_refused_phrase": "не могу это сделать",
         "no_connection_phrase": "нет связи",
         "no_api_key_phrase": "не найден API ключ. Добавьте ключ в настройках, вкладка Модели",

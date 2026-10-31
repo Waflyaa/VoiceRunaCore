@@ -17,7 +17,7 @@
 |---|---|
 | Версия | **v1.1-beta**, бренд VoiceRunaCore |
 | Установщик | `VoiceRunaCore_1.1.0_x64-setup.exe`, identifier `com.waflyaa.voicerunacore` |
-| Тесты | `611 passed, 1 skipped` (`cd sidecar && pytest -q`) |
+| Тесты | `615 passed, 1 skipped` (`cd sidecar && pytest -q`) |
 | Миграция данных | при первом запуске `config.json`, `.env`, `apps.json` и `models/` переносятся из `%APPDATA%\VoxRunaCore`, старая папка удаляется |
 
 Что изменилось при ребрендинге:
@@ -28,6 +28,17 @@
   `com.waflyaa.voicerunacore`;
 - имя ассистента больше не захардкожено: `wakeword.phrase` в конфиге, поле «Имя ассистента»
   в настройках, системный промпт подставляет это имя.
+
+---
+
+## 1c. Abilities (dev)
+
+- При старте сайдкар пишет `Abilities_RU.md` и `Abilities_ENG.md` в `%APPDATA%\VoiceRunaCore`
+  (всегда в версии текущей сборки).
+- «Что ты умеешь?» / «какие у тебя есть команды» перехватывает runtime: короткая фраза голосом
+  (`errors.abilities_phrase`) и событие `answer` с `action: "open_abilities"`.
+- UI (`History.svelte`) рисует кликабельную карточку «Список моих возможностей»; клик вызывает
+  Tauri-команду `open_abilities` → открывает `Abilities_RU.md` системным просмотрщиком.
 
 ---
 

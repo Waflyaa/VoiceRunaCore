@@ -33,8 +33,15 @@ def transcript_event(text: str, source: str = "voice") -> Event:
     return Event(TRANSCRIPT, {"text": text, "source": source})
 
 
-def answer_event(text: str, replaced_transcript: str | None = None) -> Event:
-    return Event(ANSWER, {"text": text, "replaced_transcript": replaced_transcript})
+def answer_event(
+    text: str,
+    replaced_transcript: str | None = None,
+    action: str | None = None,
+) -> Event:
+    data: dict[str, Any] = {"text": text, "replaced_transcript": replaced_transcript}
+    if action is not None:
+        data["action"] = action
+    return Event(ANSWER, data)
 
 
 def tool_call_event(name: str, args: dict[str, Any], ok: bool) -> Event:

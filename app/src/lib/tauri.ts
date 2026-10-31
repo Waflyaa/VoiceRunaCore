@@ -135,6 +135,11 @@ export async function openConfigFolder(): Promise<void> {
   await invokeTauri('open_config_folder');
 }
 
+/** Open Abilities_RU.md in the system viewer (Rust resolves the data folder). */
+export async function openAbilities(): Promise<void> {
+  await invokeTauri('open_abilities');
+}
+
 /** Safety net when window.__VOX__ is stale (e.g. the sidecar restarted on another port). */
 export async function getConnection(): Promise<VoxBridge | null> {
   if (!isTauriRuntime()) return null;

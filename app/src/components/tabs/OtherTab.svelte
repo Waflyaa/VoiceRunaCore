@@ -33,6 +33,11 @@
       <span class="field__label">Микрофон недоступен</span>
       <input class="field__input" bind:value={config.errors.mic_phrase} placeholder="микрофон недоступен" />
     </label>
+    <label class="field">
+      <span class="field__label">Ответ на «что ты умеешь»</span>
+      <input class="field__input" bind:value={config.errors.abilities_phrase} placeholder="Я скинул список своих возможностей в чат" />
+      <span class="field__hint">Эта фраза звучит голосом; полный список открывается карточкой в чате.</span>
+    </label>
   </section>
 
   <section class="group">

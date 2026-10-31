@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatTime, toolLine } from '../lib/format';
+  import { openAbilities } from '../lib/tauri';
   import type { AppsMap, ChatMessage } from '../lib/types';
 
   interface Props {
@@ -80,7 +81,25 @@
             <span class="msg__author msg__author--vox">Ассистент</span>
             <time class="msg__time" datetime={new Date(message.at).toISOString()}>{formatTime(message.at)}</time>
           </div>
-          <p class="msg__text">{message.text}</p>
+          {#if message.action === 'open_abilities'}
+            <button class="abilities" type="button" onclick={() => void openAbilities()}>
+              <span class="abilities__icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 3h9l4 4v14H6z" />
+                  <path d="M15 3v4h4" />
+                  <path d="M9 12h7M9 16h7" />
+                </svg>
+              </span>
+              <span class="abilities__body">
+                <span class="abilities__title">📄 Список моих возможностей</span>
+                <span class="abilities__hint">Нажми, чтобы открыть файл Abilities.md</span>
+              </span>
+              <span class="abilities__arrow" aria-hidden="true">→</span>
+            </button>
+            <p class="abilities__text">{message.text}</p>
+          {:else}
+            <p class="msg__text">{message.text}</p>
+          {/if}
         </article>
       {:else if message.role === 'tool'}
         <div class="tool" class:tool--fail={message.tool ? !message.tool.ok : message.toolOk === false}>
@@ -208,6 +227,78 @@
     line-height: 1.45;
     color: var(--text);
     white-space: pre-wrap;
+  }
+
+  /* Interactive "what can you do" card: primary-button look, whole row clickable. */
+  .abilities {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 2px;
+    padding: 11px 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: filter 120ms ease, transform 120ms ease;
+  }
+
+  .abilities:hover {
+    filter: brightness(1.07);
+  }
+
+  .abilities:active {
+    transform: translateY(1px);
+  }
+
+  .abilities:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .abilities__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .abilities__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .abilities__title {
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+  }
+
+  .abilities__hint {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .abilities__arrow {
+    margin-left: auto;
+    font-size: 16px;
+    opacity: 0.85;
+  }
+
+  .abilities__text {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--text-muted);
   }
 
   .chip {

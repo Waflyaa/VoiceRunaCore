@@ -51,6 +51,12 @@ pub fn open_config_folder(app: AppHandle) -> Result<(), String> {
     crate::window::open_config_folder(&app)
 }
 
+/// Карточка «Список моих возможностей»: открыть Abilities_RU.md в системном просмотрщике.
+#[tauri::command]
+pub fn open_abilities(app: AppHandle) -> Result<(), String> {
+    crate::window::open_abilities(&app)
+}
+
 /// Кнопка «перезапустить сайдкар» на экране ошибки. Блокирующая работа — в отдельном потоке.
 #[tauri::command]
 pub async fn restart_sidecar(app: AppHandle) -> Result<(), String> {

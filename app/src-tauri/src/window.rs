@@ -92,6 +92,39 @@ pub fn show_error(app: &AppHandle) {
     show_main(app);
 }
 
+/// Open Abilities_RU.md (the "what can you do" card) in the system viewer.
+///
+/// The sidecar writes the file on every start; if it is missing (first run
+/// raced the write), the data folder is opened instead so the click never dies
+/// silently.
+pub fn open_abilities(app: &AppHandle) -> Result<(), String> {
+    let dir = app.state::<AppState>().data_dir.clone();
+    let path = dir.join("Abilities_RU.md");
+    if !path.exists() {
+        return open_config_folder(app);
+    }
+    if cfg!(windows) {
+        use tauri_plugin_opener::OpenerExt;
+        if app
+            .opener()
+            .open_path(path.to_string_lossy().to_string(), None::<&str>)
+            .is_ok()
+        {
+            return Ok(());
+        }
+        Command::new("explorer.exe")
+            .arg(&path)
+            .spawn()
+            .map_err(|err| format!("не удалось открыть {}: {err}", path.display()))?;
+    } else {
+        Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|err| format!("не удалось открыть {}: {err}", path.display()))?;
+    }
+    Ok(())
+}
+
 /// Открыть `%APPDATA%\VoiceRunaCore` в проводнике, создав папку при необходимости.
 pub fn open_config_folder(app: &AppHandle) -> Result<(), String> {
     let dir = app.state::<AppState>().data_dir.clone();

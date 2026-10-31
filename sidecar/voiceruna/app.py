@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Web
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import __version__, paths
+from . import __version__, abilities, paths
 from .config import ConfigManager
 from .events import state_event
 from .logging_setup import get_logger, setup_logging
@@ -72,6 +72,11 @@ def create_app(token: str, config_path: Any = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Always keep the human-readable feature list in sync with this build.
+        try:
+            abilities.ensure_files()
+        except OSError:
+            log.warning("cannot refresh abilities files", exc_info=True)
         hub.start()
         await runtime.startup()
         log.info("sidecar ready (state=%s)", state.state)

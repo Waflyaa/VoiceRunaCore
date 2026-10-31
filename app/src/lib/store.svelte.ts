@@ -144,7 +144,11 @@ export function handleEvent(event: WsEvent): void {
       // A real answer proves the provider/key works again: drop the banner,
       // unless it is just the error phrase echoed back as the answer.
       if (!isIssueEcho(text)) ui.apiKeyIssue = null;
-      addMessage({ role: 'assistant', text });
+      addMessage({
+        role: 'assistant',
+        text,
+        action: event.action === 'open_abilities' ? 'open_abilities' : undefined,
+      });
       return;
     }
     case 'tool_call':
