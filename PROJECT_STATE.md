@@ -17,14 +17,14 @@
 |---|---|
 | Версия | **v1.1-beta**, бренд VoiceRunaCore |
 | Установщик | `VoiceRunaCore_1.1.0_x64-setup.exe`, identifier `com.waflyaa.voicerunacore` |
-| Тесты | `609 passed, 1 skipped` (`cd sidecar && pytest -q`) |
+| Тесты | `611 passed, 1 skipped` (`cd sidecar && pytest -q`) |
 | Миграция данных | при первом запуске `config.json`, `.env`, `apps.json` и `models/` переносятся из `%APPDATA%\VoxRunaCore`, старая папка удаляется |
 
 Что изменилось при ребрендинге:
 
 - Python-пакет `sidecar/voxruna` → `sidecar/voiceruna`, импорты и тесты обновлены;
 - данные и логи — `%APPDATA%\VoiceRunaCore` (с миграцией из старой папки);
-- сайдкар и установщик: `voiceruna-sidecar.exe`, продукт `VoiceRunaCore`, NSIS-идентификатор
+- сайдкар и установщик: `VoiceRunaCore.exe`, продукт `VoiceRunaCore`, NSIS-идентификатор
   `com.waflyaa.voicerunacore`;
 - имя ассистента больше не захардкожено: `wakeword.phrase` в конфиге, поле «Имя ассистента»
   в настройках, системный промпт подставляет это имя.
@@ -40,6 +40,16 @@
 | Хоткей | Ctrl+Alt+V переключает окно (открыть/в трей), настраивается в UI |
 | set_volume | громче/тише/выключить/включить/точный уровень, pycaw, ToolRegistry |
 | create_file | .txt/.md только в %USERPROFILE%\Documents\VoiceRunaCore, вне песочницы — отказ |
+
+---
+
+## 1b. Микрофон и брендинг процесса (dev)
+
+- Pre-buffer: 0.7 с для команд и 0.8 с для wake-сегментера (первое слово имени не срезается).
+- Аудио всегда 16 кГц mono: ресемпл в audio.SoundDeviceMic до сегментера.
+- Пустой или отфильтрованный транскрипт: повтор фразы и возврат в idle, без state=error.
+- В лог на каждую фразу: utterance: <s>, peak <dBFS>, rms <dBFS>, rate=16000 Hz.
+- Процесс сайдкара переименован в VoiceRunaCore.exe с иконкой приложения (PyInstaller).
 
 ---
 

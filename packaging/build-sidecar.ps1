@@ -8,13 +8,13 @@
       1. venv в packaging/.venv (Python 3.12, TZ §4);
       2. pip install -r sidecar/requirements.txt + PyInstaller 6;
       3. PyInstaller -> packaging/dist/sidecar;
-      4. проверка, что есть и voiceruna-sidecar.exe, и папка _internal.
+      4. проверка, что есть и VoiceRunaCore.exe, и папка _internal.
 
     Именно эту папку packaging/build-app.ps1 копирует в app/src-tauri/resources/sidecar,
     откуда bundle.resources tauri.conf.json кладёт её в установщик как "sidecar/".
 
     Результат:
-        packaging/dist/sidecar/voiceruna-sidecar.exe
+        packaging/dist/sidecar/VoiceRunaCore.exe
         packaging/dist/sidecar/_internal/...
 
 .PARAMETER PythonVersion
@@ -52,7 +52,7 @@ $VenvPython = Join-Path (Join-Path $VenvDir 'Scripts') 'python.exe'
 $DistDir = Join-Path $PackagingDir 'dist'
 $WorkDir = Join-Path $PackagingDir '.pyinstaller'
 $OutDir = Join-Path $DistDir 'sidecar'
-$OutExe = Join-Path $OutDir 'voiceruna-sidecar.exe'
+$OutExe = Join-Path $OutDir 'VoiceRunaCore.exe'
 $OutInternal = Join-Path $OutDir '_internal'
 
 function Write-Step([string]$Message) {

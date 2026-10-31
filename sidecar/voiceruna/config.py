@@ -188,6 +188,9 @@ DEFAULTS: dict[str, Any] = {
         # Long commands are the point of v2: allow half a minute of speech.
         "max_utterance_sec": 30,
         "pre_buffer_ms": 700,
+        "wake_pre_buffer_ms": 800,
+        "wake_silence_ms": 500,
+        "wake_max_sec": 3.5,
         # Extra silence appended after the detected end before Whisper sees the
         # phrase: a hard cut on the last consonant is a common cause of garbage
         # transcripts (owner report 2026-10-28).

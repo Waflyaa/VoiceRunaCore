@@ -24,7 +24,7 @@ def find_free_port(host: str = "127.0.0.1") -> int:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="voiceruna-sidecar", description="VoiceRunaCore voice assistant sidecar")
+    parser = argparse.ArgumentParser(prog="VoiceRunaCore", description="VoiceRunaCore voice assistant sidecar")
     parser.add_argument("--host", default="127.0.0.1", help="bind address (127.0.0.1 only by design)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on, 0 picks a free one")
     parser.add_argument("--token", default="", help="auth token; defaults to VOX_TOKEN or a random value")
@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.on_shutdown = lambda: setattr(server, "should_exit", True)
 
     # Printed for the shell logs; the token itself is never logged.
-    print(f"voiceruna-sidecar {__version__} listening on http://{args.host}:{port}", flush=True)
+    print(f"VoiceRunaCore {__version__} listening on http://{args.host}:{port}", flush=True)
     server.run()
     return 0
 

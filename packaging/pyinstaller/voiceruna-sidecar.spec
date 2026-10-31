@@ -5,10 +5,10 @@
   * onefile распаковывается в %TEMP% на каждом старте — 2-4 с холодного старта;
   * Tauri externalBin ждёт ОДИН файл, а нам нужен exe + папка _internal.
     Поэтому папка целиком кладётся в bundle.resources как "sidecar/", и Rust
-    запускает resource_dir()/sidecar/voiceruna-sidecar.exe.
+    запускает resource_dir()/sidecar/VoiceRunaCore.exe.
 
 Результат (при --distpath packaging/dist):
-    packaging/dist/sidecar/voiceruna-sidecar.exe
+    packaging/dist/sidecar/VoiceRunaCore.exe
     packaging/dist/sidecar/_internal/...
 
 Запуск — только через packaging/build-sidecar.ps1: он поднимает venv, ставит
@@ -42,6 +42,9 @@ SIDECAR_SRC = REPO_ROOT / "sidecar"
 # imports voiceruna.__main__ as part of the voiceruna package and calls main().
 SPEC_DIR = Path(SPECPATH).resolve()  # noqa: F821
 ENTRY = SPEC_DIR / "launcher.py"
+
+# Process branding: the app icon from the Tauri bundle (Explorer/Task Manager).
+ICON_PATH = REPO_ROOT / "app" / "src-tauri" / "icons" / "icon.ico"
 
 if not ENTRY.exists():
     raise SystemExit(
@@ -139,7 +142,8 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="voiceruna-sidecar",
+    name="VoiceRunaCore",
+    icon=str(ICON_PATH) if ICON_PATH.exists() else None,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -152,7 +156,7 @@ exe = EXE(
     entitlements_file=None,
 )
 
-# name="sidecar" => dist/sidecar/voiceruna-sidecar.exe + dist/sidecar/_internal/
+# name="sidecar" => dist/sidecar/VoiceRunaCore.exe + dist/sidecar/_internal/
 # ровно то, что ждёт bundle.resources в app/src-tauri/tauri.conf.json.
 coll = COLLECT(
     exe,

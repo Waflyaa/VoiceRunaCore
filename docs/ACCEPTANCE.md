@@ -87,7 +87,7 @@
   права создавать симлинки; сама проверка `resolved.parent == resolved(known_folder)` есть).
 * Живой прогон сайдкара из исходников: старт → `/health` → `/config` → `/apps` → `/command` →
   `/pause` → `/resume` → весь WebSocket-цикл → `/shutdown` (процесс завершается сам, код 0).
-* **Собранный exe** `packaging/dist/sidecar/voiceruna-sidecar.exe` (PyInstaller onedir, 316.6 МБ):
+* **Собранный exe** `packaging/dist/sidecar/VoiceRunaCore.exe` (PyInstaller onedir, 316.6 МБ):
   `/health` за 1.44 с, `/command` «который час» → «Сейчас 01:50», `/shutdown` → выход.
   Entry идёт через `packaging/pyinstaller/launcher.py` (иначе относительные импорты падают —
   поймано живым запуском).

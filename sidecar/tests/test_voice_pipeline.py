@@ -1073,3 +1073,37 @@ def test_followup_can_be_disabled(config, events):
     pipeline.begin_followup()
 
     assert pipeline._state.state == IDLE
+
+
+# --------------------------------------------------- v1.1 mic diagnostics
+@pytest.mark.asyncio
+async def test_phrase_peak_is_logged_in_dbfs(config, events, monkeypatch):
+    messages: list[str] = []
+
+    def capture(message, *args, **kwargs):
+        messages.append(str(message) % args if args else str(message))
+
+    monkeypatch.setattr(pipeline_module.log, "info", capture)
+    rig = Rig(config, events, block=False)
+
+    await rig.pipeline._prepare_utterance(np.full(16000, 3000, dtype=np.int16))
+
+    matching = [line for line in messages if "utterance:" in line and "peak" in line and "dBFS" in line]
+    assert matching, messages
+
+
+@pytest.mark.asyncio
+async def test_empty_transcript_does_not_enter_error(config, events):
+    rig = Rig(config, events, stt_text="", block=False)
+    rig.pipeline._prepare_utterance = lambda audio: _identity(audio)  # type: ignore[assignment]
+    rig.state.set(LISTENING)
+
+    await rig.pipeline._run_turn(np.full(16000, 3000, dtype=np.int16))
+
+    assert rig.state.state == IDLE
+    assert ERROR not in rig.seen_states
+    assert rig.tts.spoken and rig.tts.spoken[0]
+
+
+async def _identity(value):
+    return value

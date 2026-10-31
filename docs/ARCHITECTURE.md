@@ -19,7 +19,7 @@
                 │ HTTP 127.0.0.1:<порт>  +  X-Vox-Token
                 │ WebSocket /ws?token=…  (события в UI)
 ┌───────────────▼──────────────────────────────────────────────────┐
-│ ПРОЦЕСС 2 — voiceruna-sidecar.exe (Python + FastAPI)               │
+│ ПРОЦЕСС 2 — VoiceRunaCore.exe (Python + FastAPI)               │
 │  УШИ: микрофон → VAD → wake VoiceRunaCore → Whisper → текст              │
 │  МОЗГ: Router (без сети) → иначе LLM (каскад провайдеров)         │
 │  РУКИ: launch_application, open_folder, open_file, time, weather  │
@@ -36,7 +36,7 @@
 ### Что происходит при запуске
 
 1. Rust (`sidecar.rs`) находит свободный порт, генерирует токен, запускает
-   `sidecar\voiceruna-sidecar.exe --port <порт>` с переменной `VOX_TOKEN`.
+   `sidecar\VoiceRunaCore.exe --port <порт>` с переменной `VOX_TOKEN`.
 2. Rust опрашивает `GET /health`, пока сайдкар не ответит (до 10 с); при падении —
    не больше 3 перезапусков за 60 с.
 3. Сайдкар загружает `config.json`, поднимает FastAPI, запускает голосовой pipeline

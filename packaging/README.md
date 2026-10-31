@@ -81,13 +81,13 @@ npx tauri dev        # Rust сам поднимет "python -m voiceruna --port 
 ## 3. Почему onedir и как он попадает в установщик (ловушка ТЗ §3)
 
 `externalBin` в Tauri рассчитан на **один** файл. PyInstaller `onedir` — это
-`voiceruna-sidecar.exe` **плюс** папка `_internal` с DLL и данными. Поэтому:
+`VoiceRunaCore.exe` **плюс** папка `_internal` с DLL и данными. Поэтому:
 
 * `externalBin` **не используется**;
 * папка `packaging/dist/sidecar/` целиком копируется в `app/src-tauri/resources/sidecar/`
   (`build-app.ps1`), а `bundle.resources` отдаёт её в установщик как `sidecar/`;
-* Rust запускает `resource_dir()/sidecar/voiceruna-sidecar.exe` (на Windows
-  `resource_dir()` — каталог установки, т.е. `<install>\sidecar\voiceruna-sidecar.exe`);
+* Rust запускает `resource_dir()/sidecar/VoiceRunaCore.exe` (на Windows
+  `resource_dir()` — каталог установки, т.е. `<install>\sidecar\VoiceRunaCore.exe`);
 * `onefile` не годится: распаковка в `%TEMP%` на каждом старте даёт 2–4 с холодного старта.
 
 Связка в `app/src-tauri/tauri.conf.json`:
@@ -107,14 +107,14 @@ npx tauri dev        # Rust сам поднимет "python -m voiceruna --port 
 `app/src-tauri/resources/sidecar/.gitkeep`:
 — в dev он пустой (сайдкар запускается через Python);
 — `build-app.ps1` перед релизной сборкой чистит его и копирует настоящий onedir,
-  затем проверяет наличие `voiceruna-sidecar.exe` и `_internal`;
+  затем проверяет наличие `VoiceRunaCore.exe` и `_internal`;
 — сами скопированные файлы в git не попадают (`app/src-tauri/.gitignore`).
 
 Структура ресурса после установки:
 
 ```
 <install>\VoiceRunaCore.exe
-<install>\sidecar\voiceruna-sidecar.exe
+<install>\sidecar\VoiceRunaCore.exe
 <install>\sidecar\_internal\...   (python312.dll, onnxruntime, ctranslate2, vosk, ...)
 ```
 
@@ -210,7 +210,7 @@ window.__VOX__ // { port: number, token: string, app: "VoiceRunaCore" }
   Это не логи диалогов: `logging.enabled` по-прежнему выключен по умолчанию.
 * Ошибка «не найден сайдкар» -> не собран `packaging/build-sidecar.ps1` или установщик собран
   без него; окно показывает кнопку «перезапустить сайдкар» (`invoke('restart_sidecar')`).
-* Проверка после выхода: `tasklist | findstr voiceruna-sidecar` должен быть пуст.
+* Проверка после выхода: `tasklist | findstr VoiceRunaCore` должен быть пуст.
 
 ---
 
@@ -262,10 +262,10 @@ window.__VOX__ // { port: number, token: string, app: "VoiceRunaCore" }
 
 ## 8. Быстрый чек-лист приёмки (для этой части)
 
-- [ ] `packaging/build-sidecar.ps1` -> `packaging/dist/sidecar/voiceruna-sidecar.exe` + `_internal\`.
+- [ ] `packaging/build-sidecar.ps1` -> `packaging/dist/sidecar/VoiceRunaCore.exe` + `_internal\`.
 - [ ] `npm run build` в `app/` -> `app/dist/index.html`.
 - [ ] `packaging/build-app.ps1` -> NSIS-установщик; после установки есть
-      `<install>\sidecar\voiceruna-sidecar.exe` и `<install>\sidecar\_internal\`.
+      `<install>\sidecar\VoiceRunaCore.exe` и `<install>\sidecar\_internal\`.
 - [ ] После установки: трей, клик по иконке — окно, `Ctrl+Alt+V` — окно + слушание.
 - [ ] Крестик скрывает; выход через трей; повторный запуск показывает первое окно.
-- [ ] `tasklist | findstr voiceruna-sidecar` пуст после выхода.
+- [ ] `tasklist | findstr VoiceRunaCore` пуст после выхода.

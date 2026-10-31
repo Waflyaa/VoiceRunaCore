@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -1224,11 +1225,23 @@ class VoicePipeline:
         """STT + transcript + runtime callback, off the frame loop."""
         self._turn += 1
         turn = self._turn
+        try:
+            await self._run_turn_inner(audio, turn)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # a broken turn must not kill the voice loop
+            log.warning("turn failed: %s: %s", type(exc).__name__, exc)
+            if not self._closed and turn == self._turn:
+                self._enter_idle()
+
+    async def _run_turn_inner(self, audio: Any, turn: int) -> None:
         text = await self._transcribe(audio)
         if self._closed or turn != self._turn:
             return
         if not text:
-            log.info("empty transcript, asking to repeat")
+            # Not an error state: the microphone stays open and the loop keeps
+            # listening after the retry phrase (owner report 2026-10-31).
+            log.info("empty transcript, staying in the loop (no error state)")
             if not self._stt_error:
                 # No technical cause was shown yet: report the phrase itself.
                 self._emit_safe(error_event(self._stt_failed_phrase, "stt"))
@@ -1340,16 +1353,26 @@ class VoicePipeline:
         return np.concatenate([data, np.zeros(count, dtype=np.int16)])
 
     async def _prepare_utterance(self, audio: Any) -> np.ndarray:
-        """Pad the segment, log its levels and store the debug WAVs."""
+        """Pad the segment, log its level in dBFS and store the debug WAVs.
+
+        The 16 kHz guarantee is made once, in audio.SoundDeviceMic: the native
+        device rate (44.1/48 kHz) is resampled before a frame ever reaches the
+        segmenter, so everything below is 16 kHz mono int16.
+        """
         padded = self._with_tail_pad(audio)
         duration = padded.size / float(STT_SAMPLE_RATE)
         peak = float(np.abs(padded).max()) / 32768.0 if padded.size else 0.0
+        level = rms(padded) if padded.size else 0.0
+        peak_db = 20.0 * math.log10(peak) if peak > 0.0 else -120.0
+        rms_db = 20.0 * math.log10(level) if level > 0.0 else -120.0
+        # The owner's "the microphone works every other time" is decided here:
+        # a quiet peak means the microphone, a good peak with an empty
+        # transcript means the code.
         log.info(
-            "utterance: %.2f s (%.0f ms), rms=%.4f, peak=%.3f, rate=%d Hz",
+            "utterance: %.2f s, peak %.1f dBFS, rms %.1f dBFS, rate=%d Hz",
             duration,
-            duration * 1000.0,
-            rms(padded) if padded.size else 0.0,
-            peak,
+            peak_db,
+            rms_db,
             STT_SAMPLE_RATE,
         )
         if not self._debug_save:

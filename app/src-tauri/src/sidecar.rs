@@ -3,7 +3,7 @@
 //! Ловушка поставки: PyInstaller `onedir` — это exe + папка `_internal`, поэтому
 //! `externalBin` не используется. Папка целиком лежит в ресурсах как `sidecar/`
 //! (см. `bundle.resources` в tauri.conf.json), а exe запускается по пути
-//! `resource_dir()/sidecar/voiceruna-sidecar.exe` (на Windows resource_dir — папка exe).
+//! `resource_dir()/sidecar/VoiceRunaCore.exe` (на Windows resource_dir — папка exe).
 //!
 //! Транспорт до сайдкара — обычный HTTP по 127.0.0.1. Отдельный HTTP-клиент здесь
 //! написан на std::net намеренно: нужны только GET /health и короткие POST, а зависимость
@@ -23,9 +23,9 @@ use crate::window;
 
 /// Имя exe в ресурсах установщика.
 #[cfg(windows)]
-const SIDECAR_EXE: &str = "voiceruna-sidecar.exe";
+const SIDECAR_EXE: &str = "VoiceRunaCore.exe";
 #[cfg(not(windows))]
-const SIDECAR_EXE: &str = "voiceruna-sidecar";
+const SIDECAR_EXE: &str = "VoiceRunaCore";
 
 /// Сколько ждём `GET /health` (TZ §3: до 10 с), шаг опроса.
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(10);
