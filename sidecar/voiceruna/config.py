@@ -191,6 +191,13 @@ DEFAULTS: dict[str, Any] = {
         "wake_pre_buffer_ms": 800,
         "wake_silence_ms": 500,
         "wake_max_sec": 3.5,
+        # A cup knocked on the table is a loud broadband click: very short, very
+        # high peak, huge crest factor. It must never reach Whisper.
+        "min_speech_ms": 550,
+        "wake_min_speech_ms": 250,
+        "min_utterance_sec": 0.55,
+        "impulse_max_sec": 0.6,
+        "impulse_min_peak_dbfs": -10.0,
         # Extra silence appended after the detected end before Whisper sees the
         # phrase: a hard cut on the last consonant is a common cause of garbage
         # transcripts (owner report 2026-10-28).

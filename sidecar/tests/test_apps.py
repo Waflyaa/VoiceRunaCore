@@ -10,16 +10,9 @@ import pytest
 from voiceruna.apps import DEFAULT_APPS, AppsRegistry
 
 EXPECTED_IDS = [
-    "dota2",
-    "factorio",
-    "steam",
-    "discord",
-    "telegram",
-    "vscode",
-    "brave",
-    "explorer",
     "notepad",
     "calc",
+    "explorer",
 ]
 
 
@@ -35,16 +28,15 @@ def test_template_is_created_on_first_run(tmp_path: Path) -> None:
     assert list(tmp_path.glob("*.tmp")) == []
 
 
-def test_default_template_matches_tz_section_9() -> None:
-    assert DEFAULT_APPS["dota2"]["uri"] == "steam://rungameid/570"
-    assert DEFAULT_APPS["factorio"]["uri"] == "steam://rungameid/427520"
+def test_default_template_is_system_tools_only() -> None:
+    """A fresh install must not ship the owner's games or browsers."""
     assert DEFAULT_APPS["notepad"]["display_name"] == "Блокнот"
     assert DEFAULT_APPS["notepad"]["path"] == "notepad.exe"
     assert DEFAULT_APPS["calc"]["path"] == "calc.exe"
     assert DEFAULT_APPS["explorer"]["path"] == "explorer.exe"
-    assert DEFAULT_APPS["vscode"]["display_name"] == "VS Code"
-    assert DEFAULT_APPS["discord"]["path"].endswith("--processStart Discord.exe")
-    assert set(DEFAULT_APPS["dota2"]["aliases"]) == {"дота", "доту", "доту 2", "dota", "dota2"}
+    assert set(DEFAULT_APPS) == set(EXPECTED_IDS)
+    for leaked in ("dota2", "factorio", "steam", "discord", "telegram", "vscode", "brave"):
+        assert leaked not in DEFAULT_APPS
 
 
 def test_load_is_idempotent(tmp_path: Path) -> None:
@@ -150,11 +142,11 @@ def test_get_returns_a_copy(tmp_path: Path) -> None:
     registry = AppsRegistry(tmp_path / "apps.json")
     registry.load()
 
-    entry = registry.get("dota2")
+    entry = registry.get("notepad")
     assert entry is not None
     entry["display_name"] = "Hacked"
 
-    assert registry.get("dota2")["display_name"] == "Dota 2"
+    assert registry.get("notepad")["display_name"] == "Блокнот"
     assert registry.get("unknown") is None
 
 

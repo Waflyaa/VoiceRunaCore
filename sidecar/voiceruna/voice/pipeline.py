@@ -73,7 +73,16 @@ READ_TIMEOUT = 0.1
 #: TZ 2.6: the microphone stays deaf for 300 ms after the answer finished.
 MIC_MUTE_AFTER_SPEECH_SEC = 0.8
 #: TZ 5.2: minimum speech inside a phrase, everything shorter is noise.
-MIN_SPEECH_MS = 200.0
+MIN_SPEECH_MS = 550.0
+#: A wake word alone is short; its segmenter keeps a lower speech threshold.
+WAKE_MIN_SPEECH_MS = 250.0
+#: A command shorter than this is a cough, a click or a cup knocked on the
+#: table, never speech: it is dropped before STT (owner report 2026-11-01).
+MIN_UTTERANCE_SEC = 0.55
+#: A very short but very loud burst is an impulse even if longer than the
+#: minimum above (a knock with microphone ringing).
+IMPULSE_MAX_SEC = 0.6
+IMPULSE_MIN_PEAK_DBFS = -10.0
 #: The wake capture is deliberately short: "ассистент, открой блокнот" is ~2 s.
 WAKE_MAX_SEC = 3.5
 #: Reopen a capture stream that keeps returning digital silence (0/-90 dBFS).
@@ -231,6 +240,9 @@ class VoicePipeline:
         self._wake_phrase = "вокс"
         self._wake_fallback = True
         self._followup_window = 5.0
+        self._min_utterance_sec = MIN_UTTERANCE_SEC
+        self._impulse_max_sec = IMPULSE_MAX_SEC
+        self._impulse_min_peak_dbfs = IMPULSE_MIN_PEAK_DBFS
         self._wake_injected = False
         self._busy = False
         self._last_heard = ""
@@ -263,11 +275,18 @@ class VoicePipeline:
             self._wake_segmenter.configure(
                 silence_ms=float(cfg.get("vad.wake_silence_ms", 500)),
                 max_utterance_sec=float(cfg.get("vad.wake_max_sec", WAKE_MAX_SEC)),
-                min_speech_ms=float(cfg.get("vad.min_speech_ms", MIN_SPEECH_MS)),
+                min_speech_ms=float(cfg.get("vad.wake_min_speech_ms", WAKE_MIN_SPEECH_MS)),
                 pre_buffer_ms=float(cfg.get("vad.wake_pre_buffer_ms", 500)),
             )
             self._listen_timeout = float(cfg.get("wakeword.listen_timeout_sec", 6) or 6)
             self._followup_window = float(cfg.get("wakeword.followup_window_sec", 5) or 0)
+            self._min_utterance_sec = float(
+                cfg.get("vad.min_utterance_sec", MIN_UTTERANCE_SEC) or 0
+            )
+            self._impulse_max_sec = float(cfg.get("vad.impulse_max_sec", IMPULSE_MAX_SEC) or 0)
+            self._impulse_min_peak_dbfs = float(
+                cfg.get("vad.impulse_min_peak_dbfs", IMPULSE_MIN_PEAK_DBFS)
+            )
             self._tail_pad_ms = float(cfg.get("vad.tail_pad_ms", 500) or 0)
             self._debug_save = bool(cfg.get("debug.save_audio", False))
             raw_seconds = float(cfg.get("debug.raw_seconds", 10) or 0)
@@ -1098,6 +1117,11 @@ class VoicePipeline:
         """Transcribe a passively captured phrase and look for the wake word."""
         self._busy = True
         try:
+            impulse = self._impulse_reason(audio, command=False)
+            if impulse:
+                log.info("wake: ignoring impulse-like sound (%s)", impulse)
+                self._enter_idle(after_speech=barge_in)
+                return
             text = await self._transcribe(audio, strip_wake=False)
             if self._closed:
                 return
@@ -1234,7 +1258,38 @@ class VoicePipeline:
             if not self._closed and turn == self._turn:
                 self._enter_idle()
 
+    def _impulse_reason(self, audio: Any, *, command: bool = True) -> str | None:
+        """Why this phrase looks like a non-speech impulse (None means it is ok).
+
+        Two rules, both checked before Whisper:
+        * a command shorter than vad.min_utterance_sec is a click/cough;
+        * a very short and very loud burst (a cup knocked on the table) is an
+          impulse even when the microphone ringing stretches it a little.
+        Whisper happily turns such bursts into "open dota, factorio, explorer"
+        (owner report 2026-11-01).
+        """
+        samples = np.asarray(audio)
+        if samples.size == 0:
+            return None
+        data = samples if samples.dtype == np.int16 else to_int16_mono(samples)
+        duration = data.size / float(STT_SAMPLE_RATE)
+        if command and duration < self._min_utterance_sec:
+            return f"too short: {duration:.2f} s"
+        peak = float(np.abs(data.astype(np.int32)).max()) / 32768.0
+        if peak <= 0.0:
+            return None
+        peak_db = 20.0 * math.log10(peak)
+        if duration <= self._impulse_max_sec and peak_db >= self._impulse_min_peak_dbfs:
+            return f"short loud burst: {duration:.2f} s, peak {peak_db:.1f} dBFS"
+        return None
+
     async def _run_turn_inner(self, audio: Any, turn: int) -> None:
+        impulse = self._impulse_reason(audio)
+        if impulse:
+            # Do not spend a Whisper pass on a knock: it only invents commands.
+            log.info("ignoring impulse-like sound (%s), not sending it to STT", impulse)
+            self._enter_idle()
+            return
         text = await self._transcribe(audio)
         if self._closed or turn != self._turn:
             return

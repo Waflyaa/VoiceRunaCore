@@ -192,6 +192,15 @@ class Rig:
         # Most pipeline tests exercise the Vosk path; the vad_stt mode has its
         # own tests below and gets the mode explicitly.
         config.set("wakeword.engine", wake_mode, persist=False)
+        # The suite uses 32 ms frames: keep the production 0.55 s rule out of
+        # the way, and give the router the game-rich test registry.
+        config.set("vad.min_utterance_sec", 0.1, persist=False)
+        import json
+        from conftest import TEST_APPS
+
+        apps_file = config.env_path().parent / "apps.json"
+        if not apps_file.exists():
+            apps_file.write_text(json.dumps(TEST_APPS, ensure_ascii=False), encoding="utf-8")
         self.state = StateManager()
         self.seen_states: list[str] = []
         self.state.subscribe(self.seen_states.append)
@@ -236,6 +245,9 @@ async def push(mic: FakeMic, frames, delay: float = 0.02) -> None:
 
 
 def quiet_config(config) -> None:
+    config.set("vad.min_speech_ms", 64)
+    config.set("vad.wake_min_speech_ms", 64)
+    config.set("vad.min_utterance_sec", 0.05)
     config.set("vad.silence_ms", 96)
     config.set("vad.max_utterance_sec", 12)
     config.set("vad.pre_buffer_ms", 64)
@@ -880,10 +892,10 @@ async def test_debug_off_writes_nothing(config, events, data_dir):
 async def test_record_and_recognize_returns_text_and_vad(config, events, data_dir):
     rig = Rig(config, events, block=False,
               stt_details={"confidence": 0.83, "peak_dbfs": -24.5, "normalized": True})
-    probe = ProbeMic(speech_block(0.3))
+    probe = ProbeMic(speech_block(0.8))
     rig.pipeline.use_components(input_probe=lambda device: probe)
 
-    result = await rig.pipeline.record_and_recognize(seconds=0.3)
+    result = await rig.pipeline.record_and_recognize(seconds=0.8)
 
     assert result["ok"] is True
     assert result["text"] == "открой блокнот"

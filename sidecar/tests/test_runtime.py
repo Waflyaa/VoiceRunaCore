@@ -160,6 +160,12 @@ def make_llm_result(**kwargs):
 
 @pytest.fixture()
 def harness(monkeypatch, config, events):
+    from conftest import TEST_APPS
+    import json
+
+    (config.env_path().parent / "apps.json").write_text(
+        json.dumps(TEST_APPS, ensure_ascii=False), encoding="utf-8"
+    )
     monkeypatch.setattr(runtime_module, "VoicePipeline", FakeVoice)
     state = StateManager()
     rt = runtime_module.AssistantRuntime(config, state, events)

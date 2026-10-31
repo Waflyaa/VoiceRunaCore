@@ -24,48 +24,11 @@ __all__ = ["DEFAULT_APPS", "AppsRegistry"]
 
 logger = get_logger("apps")
 
-# Template from TZ §9. Paths depend on the machine and are edited by the owner.
+# A fresh install starts with system tools only: shipping games/browsers made
+# the assistant launch them on a hallucinated phrase and leaked the owner's
+# personal setup into every user's %APPDATA% (owner report 2026-11-01).
+# Games and browsers are added by the owner in Settings -> Programs.
 DEFAULT_APPS: dict[str, dict] = {
-    "dota2": {
-        "display_name": "Dota 2",
-        "uri": "steam://rungameid/570",
-        "aliases": ["дота", "доту", "доту 2", "dota", "dota2"],
-    },
-    "factorio": {
-        "display_name": "Factorio",
-        "uri": "steam://rungameid/427520",
-        "aliases": ["факторио", "фактори"],
-    },
-    "steam": {
-        "display_name": "Steam",
-        "path": r"C:\Program Files (x86)\Steam\steam.exe",
-        "aliases": ["стим"],
-    },
-    "discord": {
-        "display_name": "Discord",
-        "path": r"%LOCALAPPDATA%\Discord\Update.exe --processStart Discord.exe",
-        "aliases": ["дискорд"],
-    },
-    "telegram": {
-        "display_name": "Telegram",
-        "path": r"%APPDATA%\Telegram Desktop\Telegram.exe",
-        "aliases": ["телеграм", "телега"],
-    },
-    "vscode": {
-        "display_name": "VS Code",
-        "path": r"%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe",
-        "aliases": ["вс код", "vs code", "вскод"],
-    },
-    "brave": {
-        "display_name": "Brave",
-        "path": r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
-        "aliases": ["браве", "brave"],
-    },
-    "explorer": {
-        "display_name": "Проводник",
-        "path": "explorer.exe",
-        "aliases": ["проводник", "мои файлы"],
-    },
     "notepad": {
         "display_name": "Блокнот",
         "path": "notepad.exe",
@@ -75,6 +38,11 @@ DEFAULT_APPS: dict[str, dict] = {
         "display_name": "Калькулятор",
         "path": "calc.exe",
         "aliases": ["калькулятор"],
+    },
+    "explorer": {
+        "display_name": "Проводник",
+        "path": "explorer.exe",
+        "aliases": ["проводник", "мои файлы"],
     },
 }
 

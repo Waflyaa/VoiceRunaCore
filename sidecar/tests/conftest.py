@@ -39,11 +39,30 @@ def config(data_dir: Path):
     return manager
 
 
+TEST_APPS = {
+    "dota2": {"display_name": "Dota 2", "uri": "steam://rungameid/570", "aliases": ["дота", "доту"]},
+    "factorio": {"display_name": "Factorio", "uri": "steam://rungameid/427520", "aliases": ["факторио"]},
+    "steam": {"display_name": "Steam", "path": "steam.exe", "aliases": ["стим"]},
+    "discord": {"display_name": "Discord", "path": "discord.exe", "aliases": ["дискорд"]},
+    "telegram": {"display_name": "Telegram", "path": "telegram.exe", "aliases": ["телеграм"]},
+    "vscode": {"display_name": "VS Code", "path": "code.exe", "aliases": ["вс код", "vs code", "вскод"]},
+    "brave": {"display_name": "Brave", "path": "brave.exe", "aliases": ["браве", "brave"]},
+    "explorer": {"display_name": "Проводник", "path": "explorer.exe", "aliases": ["проводник", "мои файлы"]},
+    "notepad": {"display_name": "Блокнот", "path": "notepad.exe", "aliases": ["блокнот", "нотпад"]},
+    "calc": {"display_name": "Калькулятор", "path": "calc.exe", "aliases": ["калькулятор"]},
+}
+
+
 @pytest.fixture()
 def apps(config):
+    """Registry with extra test apps (the shipped template is systems-only)."""
+    import json
+
     from voiceruna.apps import AppsRegistry
 
-    registry = AppsRegistry(config.env_path().parent / "apps.json")
+    path = config.env_path().parent / "apps.json"
+    path.write_text(json.dumps(TEST_APPS, ensure_ascii=False), encoding="utf-8")
+    registry = AppsRegistry(path)
     registry.load()
     return registry
 
@@ -60,3 +79,12 @@ def events():
 
     sink.collected = collected  # type: ignore[attr-defined]
     return sink
+
+
+def seed_test_apps(directory) -> None:
+    """Write the game-rich test registry before a runtime/pipeline is built."""
+    import json
+    from pathlib import Path as _Path
+
+    folder = _Path(directory)
+    (folder / "apps.json").write_text(json.dumps(TEST_APPS, ensure_ascii=False), encoding="utf-8")
