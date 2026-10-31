@@ -15,6 +15,8 @@ log = get_logger("plugins.basic")
 
 class BasicInfoPlugin(BasePlugin):
     name = "basic_info"
+    title = "Время и погода"
+    description = "Текущее время и прогноз погоды."
 
     def __init__(self, app=None) -> None:
         super().__init__(app)

@@ -15,6 +15,7 @@ import type {
   HealthInfo,
   ModelsResponse,
   OkResponse,
+  PluginsResponse,
   PreviewResponse,
   ProviderTestResponse,
   StateInfo,
@@ -275,6 +276,14 @@ export class VoxApi {
 
   putApps(apps: AppsMap): Promise<AppsMap> {
     return this.request<AppsMap>('PUT', '/apps', apps);
+  }
+
+  getPlugins(): Promise<PluginsResponse> {
+    return this.request<PluginsResponse>('GET', '/plugins');
+  }
+
+  togglePlugin(name: string, enabled?: boolean): Promise<PluginsResponse> {
+    return this.request<PluginsResponse>('POST', '/plugins/toggle', { name, enabled });
   }
 
   /** Write one API key into %APPDATA%\VoiceRunaCore\.env (never config.json). */

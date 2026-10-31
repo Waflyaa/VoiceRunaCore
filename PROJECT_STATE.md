@@ -77,6 +77,16 @@
 
 ---
 
+## 1e. Plugin UI (new_idea)
+
+- HTTP: GET /plugins (каталог плагинов: имя, заголовок, описание, enabled/loaded, tools)
+  и POST /plugins/toggle (переключает, сохраняет enabled_plugins в config.json
+  и перезагружает PluginManager на лету).
+- UI: вкладка «Плагины» в настройках (иконка-пазл, тумблеры как в VS Code); список
+  подтягивается с /plugins, переключение сразу применяется без перезапуска.
+
+---
+
 ## 2. Архитектура
 
 Tauri 2 (Rust) + Svelte 5/Vite + Python 3.12/FastAPI sidecar (два процесса, REST 127.0.0.1 + токен).

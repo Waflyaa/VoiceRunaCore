@@ -224,3 +224,38 @@ def test_stt_record_test_reports_failure_instead_of_500(client):
 
 def test_stt_record_test_requires_token(client):
     assert client.post("/stt/record_test", json={}).status_code == 401
+
+
+# ------------------------------------------------------------------ plugins UI
+def test_plugins_catalog_and_live_toggle(client):
+    from voiceruna.tools import tool_names
+
+    catalog = client.get("/plugins", headers=HEADERS).json()["plugins"]
+    by_name = {item["name"]: item for item in catalog}
+    assert {"apps_launcher", "system_tools", "basic_info"} <= set(by_name)
+    assert by_name["apps_launcher"]["title"] == "Запуск программ"
+    assert by_name["system_tools"]["title"] == "Громкость и файлы"
+    assert by_name["basic_info"]["enabled"] is True
+
+    try:
+        response = client.post(
+            "/plugins/toggle", headers=HEADERS,
+            json={"name": "basic_info", "enabled": False},
+        )
+        assert response.status_code == 200
+        disabled = {item["name"]: item for item in response.json()["plugins"]}
+        assert disabled["basic_info"]["enabled"] is False
+        assert "get_time" not in tool_names()
+        assert "get_weather" not in tool_names()
+        assert "set_volume" in tool_names()
+    finally:
+        client.post("/plugins/toggle", headers=HEADERS,
+                    json={"name": "basic_info", "enabled": True})
+
+    assert "get_time" in tool_names()
+
+
+def test_plugins_toggle_unknown_name_is_404(client):
+    response = client.post("/plugins/toggle", headers=HEADERS,
+                           json={"name": "does_not_exist", "enabled": True})
+    assert response.status_code == 404

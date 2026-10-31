@@ -18,6 +18,8 @@ VOLUME_ACTIONS = {"up", "down", "mute", "unmute", "set"}
 
 class SystemToolsPlugin(BasePlugin):
     name = "system_tools"
+    title = "Громкость и файлы"
+    description = "Управление громкостью Windows и создание файлов в песочнице."
 
     def __init__(self, app=None) -> None:
         super().__init__(app)

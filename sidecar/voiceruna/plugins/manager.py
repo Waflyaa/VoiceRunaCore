@@ -22,6 +22,14 @@ __all__ = ["PluginManager", "plugins_dir"]
 
 log = get_logger("plugins")
 
+#: Titles for plugins that are currently disabled (module is not imported).
+PLUGIN_METADATA: dict[str, tuple[str, str]] = {
+    "apps_launcher": ("Запуск программ", "Запуск приложений из белого списка и открытие папок."),
+    "system_tools": ("Громкость и файлы", "Управление громкостью Windows и создание файлов в песочнице."),
+    "basic_info": ("Время и погода", "Текущее время и прогноз погоды."),
+}
+
+
 DEFAULT_PLUGINS = ["apps_launcher", "system_tools", "basic_info"]
 
 
@@ -106,8 +114,46 @@ class PluginManager:
         log.info("plugin loaded: %s (%d tools)", name, len(plugin.get_tools()))
         return plugin
 
+    def catalog(self) -> list[dict]:
+        """Every discovered plugin with its enabled/loaded state for the UI."""
+        enabled = self._enabled()
+        items: list[dict] = []
+        for name in self.discover():
+            plugin = self.plugins.get(name)
+            tools: list[str] = []
+            if plugin is not None:
+                try:
+                    tools = [str(item["name"]) for item in plugin.get_tools()]
+                except Exception:  # pragma: no cover - defensive
+                    tools = []
+            fallback_title, fallback_desc = PLUGIN_METADATA.get(name, (name, ""))
+            items.append(
+                {
+                    "name": name,
+                    "title": str(getattr(plugin, "title", fallback_title) or fallback_title),
+                    "description": str(getattr(plugin, "description", fallback_desc) or fallback_desc),
+                    "enabled": name in enabled,
+                    "loaded": name in self.plugins,
+                    "tools": tools,
+                }
+            )
+        return items
+
+    def set_enabled(self, name: str, enabled: bool) -> list[dict]:
+        """Persist one plugin switch and reload the registry immediately."""
+        current = self._enabled()
+        if enabled and name not in current:
+            current.append(name)
+        elif not enabled and name in current:
+            current = [item for item in current if item != name]
+        self._config.set("enabled_plugins", current, persist=True)
+        self.load(enabled=current)
+        log.info("plugin %s -> %s", name, "enabled" if enabled else "disabled")
+        return self.catalog()
+
     def load(self, enabled: list[str] | None = None) -> list[str]:
         """Load the enabled plugins (config order) and return their tool names."""
+        REGISTRY.clear()
         self.plugins.clear()
         self.tool_names.clear()
         wanted = enabled if enabled is not None else self._enabled()

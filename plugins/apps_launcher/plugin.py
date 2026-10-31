@@ -21,6 +21,8 @@ FOLDER_LABELS = {
 
 class AppsLauncherPlugin(BasePlugin):
     name = "apps_launcher"
+    title = "Запуск программ"
+    description = "Запуск приложений из белого списка и открытие папок."
 
     def get_tools(self):
         return [

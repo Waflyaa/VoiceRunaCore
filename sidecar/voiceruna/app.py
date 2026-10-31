@@ -37,6 +37,11 @@ class EnvBody(BaseModel):
     value: str = Field(default="", max_length=4096)
 
 
+class PluginToggleBody(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    enabled: bool | None = None
+
+
 class PreviewBody(BaseModel):
     voice: str = Field(default="", max_length=128)
     text: str = Field(default="", max_length=1000)
@@ -104,6 +109,7 @@ def create_app(token: str, config_path: Any = None) -> FastAPI:
     app.state.state = state
     app.state.hub = hub
     app.state.runtime = runtime
+    app.state.plugin_manager = plugin_manager
     app.state.on_shutdown = None
 
     # The window in a packaged Tauri app runs on http://tauri.localhost while the
@@ -378,6 +384,21 @@ def create_app(token: str, config_path: Any = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return runtime.reload_apps()
+
+    # ------------------------------------------------------------------ plugins
+    @app.get("/plugins", dependencies=[Depends(require_token)])
+    async def get_plugins() -> dict[str, Any]:
+        return {"plugins": plugin_manager.catalog()}
+
+    @app.post("/plugins/toggle", dependencies=[Depends(require_token)])
+    async def toggle_plugin(body: PluginToggleBody) -> dict[str, Any]:
+        name = body.name.strip()
+        if name not in plugin_manager.discover():
+            raise HTTPException(status_code=404, detail=f"плагин не найден: {name}")
+        current = {item["name"]: item["enabled"] for item in plugin_manager.catalog()}
+        enabled = (not current.get(name, False)) if body.enabled is None else bool(body.enabled)
+        plugins = plugin_manager.set_enabled(name, enabled)
+        return {"plugins": plugins, "tools": list(plugin_manager.tool_names)}
 
     # ------------------------------------------------------------------ lifecycle
     @app.post("/shutdown", dependencies=[Depends(require_token)])

@@ -14,7 +14,7 @@ export type VoxState =
 
 export type ConnectionStatus = 'idle' | 'connecting' | 'online' | 'offline';
 
-export type SettingsTab = 'models' | 'voice' | 'audio' | 'apps' | 'other';
+export type SettingsTab = 'models' | 'voice' | 'audio' | 'apps' | 'plugins' | 'other';
 
 /** Port + token injected by Tauri as window.__VOX__ (or read from the dev URL). */
 export interface VoxBridge {
@@ -288,6 +288,21 @@ export interface ChatMessage {
   tool?: ToolCallInfo;
   /** Interactive card to render instead of plain assistant text. */
   action?: 'open_abilities';
+}
+
+/** One plugin row in the settings -> Plugins tab. */
+export interface PluginInfo {
+  name: string;
+  title: string;
+  description: string;
+  enabled: boolean;
+  loaded: boolean;
+  tools: string[];
+}
+
+export interface PluginsResponse {
+  plugins: PluginInfo[];
+  tools?: string[];
 }
 
 export type ToastKind = 'info' | 'success' | 'error';

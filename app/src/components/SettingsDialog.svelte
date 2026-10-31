@@ -9,6 +9,7 @@
   import AudioTab from './tabs/AudioTab.svelte';
   import ModelsTab from './tabs/ModelsTab.svelte';
   import OtherTab from './tabs/OtherTab.svelte';
+  import PluginsTab from './tabs/PluginsTab.svelte';
   import VoiceTab from './tabs/VoiceTab.svelte';
   import Icon from './Icon.svelte';
 
@@ -17,6 +18,7 @@
     { id: 'voice', label: 'Голос' },
     { id: 'audio', label: 'Звук' },
     { id: 'apps', label: 'Программы' },
+    { id: 'plugins', label: 'Плагины' },
     { id: 'other', label: 'Прочее' },
   ];
 
@@ -194,6 +196,11 @@
           aria-selected={tab === item.id}
           onclick={() => (tab = item.id)}
         >
+          {#if item.id === 'plugins'}
+            <svg class="tab__icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10 3h4a1 1 0 0 1 1 1v2a2 2 0 1 0 0 4v2a1 1 0 0 1-1 1h-2a1 1 0 0 0-1 1v2a1 1 0 0 1-1 1H8a2 2 0 1 1 0-4 2 2 0 0 0 0-4H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h2a2 2 0 0 0 2-2z" />
+            </svg>
+          {/if}
           {item.label}
         </button>
       {/each}
@@ -220,6 +227,8 @@
             <AudioTab audio={config.audio} />
           {:else if tab === 'apps'}
             <AppsTab {apps} />
+          {:else if tab === 'plugins'}
+            <PluginsTab />
           {:else}
             <OtherTab {config} />
           {/if}
@@ -300,6 +309,9 @@
   }
 
   .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     flex: 0 0 auto;
     padding: 7px 9px;
     border: none;
@@ -309,6 +321,11 @@
     font-size: 12.5px;
     cursor: pointer;
     border-radius: 6px 6px 0 0;
+  }
+
+  .tab__icon {
+    color: var(--accent);
+    opacity: 0.9;
   }
 
   .tab:hover {

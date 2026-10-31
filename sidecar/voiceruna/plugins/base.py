@@ -28,6 +28,8 @@ class BasePlugin:
     """One feature pack: a name and a list of tool definitions."""
 
     name = "base"
+    title = "Плагин"
+    description = ""
 
     def __init__(self, app: Any = None) -> None:
         self.app = app

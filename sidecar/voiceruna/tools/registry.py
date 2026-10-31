@@ -28,6 +28,10 @@ class ToolRegistry:
         self._specs[name] = spec
         self._handlers[name] = handler
 
+    def clear(self) -> None:
+        self._specs.clear()
+        self._handlers.clear()
+
     def has(self, name: str) -> bool:
         return name in self._handlers
 
