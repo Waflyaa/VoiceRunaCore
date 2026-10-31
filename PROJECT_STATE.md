@@ -16,7 +16,7 @@
 | | Состояние |
 |---|---|
 | Версия | **v1.2-beta**, бренд VoiceRunaCore |
-| Установщик | `VoiceRunaCore_1.2.0_x64-setup.exe`, identifier `com.waflyaa.voicerunacore` |
+| Установщик | `VoiceRunaCore_2.0.0-beta_x64-setup.exe`, identifier `com.waflyaa.voicerunacore` |
 | Тесты | `615 passed, 1 skipped` (`cd sidecar && pytest -q`) |
 | Миграция данных | при первом запуске `config.json`, `.env`, `apps.json` и `models/` переносятся из `%APPDATA%\VoxRunaCore`, старая папка удаляется |
 
@@ -249,8 +249,8 @@ cd ..\..\packaging
 powershell -ExecutionPolicy Bypass -File .\build-app.ps1 -BuildSidecar
 ```
 
-Готовый установщик: `app\src-tauri\target\release\bundle\nsis\VoiceRunaCore_1.2.0_x64-setup.exe`.
-Тихая установка: `VoiceRunaCore_1.2.0_x64-setup.exe /S`; установленное приложение —
+Готовый установщик: `app\src-tauri\target\release\bundle\nsis\VoiceRunaCore_2.0.0-beta_x64-setup.exe`.
+Тихая установка: `VoiceRunaCore_2.0.0-beta_x64-setup.exe /S`; установленное приложение —
 `%LOCALAPPDATA%\VoiceRunaCore\voiceruna.exe`.
 MSVC: запускать сборку из «x64 Native Tools Command Prompt» (vcvars64) или через
 внешний bootstrap-скрипт, который активирует vcvars64 перед запуском.

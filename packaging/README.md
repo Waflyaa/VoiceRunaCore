@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File packaging/build-app.ps1
 **Готовый установщик:**
 
 ```
-app/src-tauri/target/release/bundle/nsis/VoiceRunaCore_1.2.0_x64-setup.exe
+app/src-tauri/target/release/bundle/nsis/VoiceRunaCore_2.0.0-beta_x64-setup.exe
 ```
 
 Dev-режим (сайдкар запускается из исходников через Python, сайдкар собирать не нужно):

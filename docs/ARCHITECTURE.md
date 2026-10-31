@@ -366,7 +366,7 @@ powershell -ExecutionPolicy Bypass -File .\build-app.ps1 -BuildSidecar
 powershell -ExecutionPolicy Bypass -File .\build-app.ps1 -SkipFrontend
 ```
 
-Результат: `app\src-tauri\target\release\bundle\nsis\VoiceRunaCore_1.2.0_x64-setup.exe`.
+Результат: `app\src-tauri\target\release\bundle\nsis\VoiceRunaCore_2.0.0-beta_x64-setup.exe`.
 Установка: `...setup.exe /S` (тихо). Установленное приложение:
 `%LOCALAPPDATA%\VoiceRunaCore\voiceruna.exe`.
 
