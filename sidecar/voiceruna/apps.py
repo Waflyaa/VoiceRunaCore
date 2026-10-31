@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import shutil
 import re
 import threading
 from pathlib import Path
@@ -23,6 +24,29 @@ from .security import normalize_alias
 __all__ = ["DEFAULT_APPS", "AppsRegistry"]
 
 logger = get_logger("apps")
+
+#: Never keep these in a user's whitelist: a hallucinated phrase must not start a game.
+_GAME_IDS = frozenset({"dota2", "factorio"})
+_GAME_NAMES = ("dota", "factorio", "дота", "факторио")
+
+
+def _strip_games(data: dict[str, Any]) -> list[str]:
+    """Remove game entries (by id, display name or a Steam game URI)."""
+    removed: list[str] = []
+    for app_id in list(data):
+        entry = data.get(app_id)
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("display_name") or "").lower()
+        uri = str(entry.get("uri") or "").lower()
+        if (
+            app_id in _GAME_IDS
+            or any(word in name for word in _GAME_NAMES)
+            or uri.startswith("steam://rungameid")
+        ):
+            removed.append(app_id)
+            data.pop(app_id, None)
+    return removed
 
 # A fresh install starts with system tools only: shipping games/browsers made
 # the assistant launch them on a hallucinated phrase and leaked the owner's
@@ -142,7 +166,20 @@ class AppsRegistry:
                     apps[app_id] = _validate_entry(app_id, entry)
                 except ValueError as exc:
                     logger.warning("apps.json: запись отброшена: %s", exc)
+            removed = _strip_games(apps) if os.environ.get("VOX_ALLOW_GAMES") != "1" else []
             self._apps = apps
+            if removed:
+                backup = self._path.with_name(self._path.name + ".bak")
+                if not backup.exists():
+                    try:
+                        shutil.copy2(self._path, backup)
+                    except OSError:  # pragma: no cover - disk problems
+                        pass
+                self._write_locked()
+                logger.warning(
+                    "apps.json: игры удалены из белого списка: %s",
+                    ", ".join(removed),
+                )
             return self.snapshot()
 
     def save(self) -> None:

@@ -367,3 +367,16 @@ async def test_window_text_does_not_open_followup_window(harness):
     await rt.handle_text("открой блокнот", source="window")
 
     assert rt._voice.followup_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_multi_app_phrase_is_refused(harness):
+    rt, _state = harness
+    rt._tools = FakeTools(ToolResult(ok=True, speech="Открываю"))
+    rt._llm = FakeLLM(make_llm_result(text="should not be used"))
+
+    answer = await rt.handle_text("открой доту, факторио, проводник", source="voice")
+
+    assert answer == rt._phrase("not_understood_phrase")
+    assert rt._tools.calls == []
+

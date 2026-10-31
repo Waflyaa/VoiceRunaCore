@@ -189,3 +189,33 @@ def test_describe_for_prompt_handles_empty_registry(tmp_path: Path) -> None:
     assert registry.describe_for_prompt() == ""
     assert registry.ids() == []
     assert registry.aliases() == {}
+
+
+def test_games_are_stripped_and_backed_up(tmp_path, monkeypatch):
+    monkeypatch.delenv("VOX_ALLOW_GAMES", raising=False)
+    path = tmp_path / "apps.json"
+    data = {
+        "dota2": {"display_name": "Dota 2", "uri": "steam://rungameid/570"},
+        "factorio": {"display_name": "Factorio", "uri": "steam://rungameid/427520"},
+        "notepad": {"display_name": "Блокнот", "path": "notepad.exe"},
+    }
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    registry = AppsRegistry(path)
+    loaded = registry.load()
+
+    assert list(loaded) == ["notepad"]
+    assert (tmp_path / "apps.json.bak").is_file()
+    assert "dota2" in (tmp_path / "apps.json.bak").read_text(encoding="utf-8")
+
+
+def test_steam_game_uri_is_stripped(tmp_path, monkeypatch):
+    monkeypatch.delenv("VOX_ALLOW_GAMES", raising=False)
+    path = tmp_path / "apps.json"
+    path.write_text(
+        json.dumps({"somegame": {"display_name": "Some Game", "uri": "steam://rungameid/123"}}),
+        encoding="utf-8",
+    )
+
+    assert AppsRegistry(path).load() == {}
+

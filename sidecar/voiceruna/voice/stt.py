@@ -170,12 +170,12 @@ class WhisperTranscriber:
         self._normalize_min_peak = 0.0005
         self._normalize_max_gain = 80.0
         self._min_peak_dbfs = -45.0
-        self._min_confidence = 0.42
+        self._min_confidence = 0.55
         self._agc_target_peak = 0.95
         # Layered whisper guard (adapted from whisper-guard / Leon).
-        self._drop_no_speech = 0.6
+        self._drop_no_speech = 0.4
         self._drop_logprob = -1.0
-        self._extreme_no_speech = 0.85
+        self._extreme_no_speech = 0.7
         self._extreme_logprob = -1.5
         self._max_compression_ratio = 3.0
         self._sparse_min_sec = 10.0
@@ -212,11 +212,11 @@ class WhisperTranscriber:
         except (TypeError, ValueError):  # pragma: no cover
             self._normalize_max_gain = 80.0
         self._min_peak_dbfs = self._float_cfg("stt.min_peak_dbfs", -45.0)
-        self._min_confidence = self._float_cfg("stt.min_confidence", 0.42)
+        self._min_confidence = self._float_cfg("stt.min_confidence", 0.55)
         self._agc_target_peak = min(1.0, max(0.1, self._float_cfg("stt.agc_target_peak", 0.95)))
-        self._drop_no_speech = self._float_cfg("stt.drop_no_speech", 0.6)
+        self._drop_no_speech = self._float_cfg("stt.drop_no_speech", 0.4)
         self._drop_logprob = self._float_cfg("stt.drop_logprob", -1.0)
-        self._extreme_no_speech = self._float_cfg("stt.extreme_no_speech", 0.85)
+        self._extreme_no_speech = self._float_cfg("stt.extreme_no_speech", 0.7)
         self._extreme_logprob = self._float_cfg("stt.extreme_logprob", -1.5)
         self._max_compression_ratio = self._float_cfg("stt.max_compression_ratio", 3.0)
         self._sparse_min_sec = self._float_cfg("stt.sparse_min_sec", 10.0)
@@ -513,23 +513,16 @@ class WhisperTranscriber:
         chars = len(re.sub(r"\s+", " ", text).strip())
         density = (chars / duration) if duration and duration > 0.2 else None
 
-        drop_no_speech = 0.8 if relaxed else self._drop_no_speech
+        drop_no_speech = 0.55 if relaxed else self._drop_no_speech
         drop_logprob = -1.4 if relaxed else self._drop_logprob
-        extreme_no_speech = 0.95 if relaxed else self._extreme_no_speech
+        extreme_no_speech = 0.8 if relaxed else self._extreme_no_speech
         extreme_logprob = -1.8 if relaxed else self._extreme_logprob
 
-        if (
-            no_speech is not None
-            and no_speech > drop_no_speech
-            and logprob is not None
-            and logprob > self._rescue_logprob
-            and density is not None
-            and density >= self._rescue_density
-            and duration is not None
-            and duration >= self._rescue_min_sec
-        ):
-            return None
         if no_speech is not None and no_speech > extreme_no_speech:
+            return f"no_speech={no_speech:.2f}"
+        if no_speech is not None and no_speech > drop_no_speech:
+            # Owner rule (2026-11-01): anything the model itself calls mostly
+            # non-speech is a hallucination, whatever the other metrics say.
             return f"no_speech={no_speech:.2f}"
         if logprob is not None and logprob < extreme_logprob:
             return f"logprob={logprob:.2f}"
@@ -678,7 +671,7 @@ RELAXED_MAX_NO_SPEECH = 0.85
 RELAXED_MIN_LOGPROB = -1.6
 
 #: A one-word transcript is only accepted when it is a real short command.
-SINGLE_WORD_COMMANDS = frozenset({"время", "погода", "стоп", "пауза", "хватит", "отмена"})
+SINGLE_WORD_COMMANDS = frozenset({"время", "погода", "стоп", "пауза", "хватит", "отмена", "громче", "тише"})
 
 
 def looks_like_a_command(text: str) -> bool:

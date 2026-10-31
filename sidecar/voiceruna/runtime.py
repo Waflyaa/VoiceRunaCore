@@ -16,7 +16,7 @@ from typing import Any
 
 from . import paths
 from .apps import AppsRegistry
-from . import abilities
+from . import abilities, security
 from .config import ConfigManager
 from .events import (
     EventSink,
@@ -274,10 +274,24 @@ class AssistantRuntime:
 
     # ------------------------------------------------------------------ dialogue
     async def _respond(self, text: str) -> str:
+        # A phrase naming several unrelated apps is a Whisper hallucination
+        # ("открой доту, факторио, проводник"): refuse it before the router and
+        # before the LLM, so nothing can execute it.
+        if self._mentions_multiple_apps(text):
+            log.warning("ignoring suspicious phrase with several app names: %r", text)
+            return self._phrase("not_understood_phrase")
         router = self._router
         route = router.route(text)
         if route.tool:
-            result = await self._tools.execute(route.tool, dict(route.args or {}))
+            args = dict(route.args or {})
+            if route.tool == "launch_application" and self._mentions_multiple_apps(text):
+                log.warning(
+                    "ignoring suspicious command with several app names: %r",
+                    text,
+                )
+                return self._phrase("not_understood_phrase")
+            self._log_tool_launch(route.tool, args, text)
+            result = await self._tools.execute(route.tool, args)
             self._emit(tool_call_event(route.tool, dict(route.args or {}), result.ok))
             speech = (result.speech or "").strip()
             return speech or self._phrase("tool_refused_phrase")
@@ -310,6 +324,10 @@ class AssistantRuntime:
             args = call.get("args") or {}
             if not isinstance(args, dict):
                 args = {}
+            if name == "launch_application" and self._mentions_multiple_apps(text):
+                log.warning("ignoring suspicious LLM command with several app names: %r", text)
+                return self._phrase("not_understood_phrase")
+            self._log_tool_launch(name, args, text)
             tool_result = await self._tools.execute(name, args)
             self._emit(tool_call_event(name, args, tool_result.ok))
             speech = (tool_result.speech or "").strip()
@@ -317,6 +335,44 @@ class AssistantRuntime:
 
         answer = (result.text or "").strip()
         return answer or self._phrase("not_understood_phrase")
+
+    def _mentions_multiple_apps(self, text: str) -> bool:
+        """True when a phrase names two or more registered apps.
+
+        A hallucinated "открой доту, факторио, проводник" is a mix of several
+        unrelated app names; real commands name one.
+        """
+        normalized = security.normalize_alias(text)
+        normalized = re.sub(r"[^0-9a-zа-яё\s]", " ", normalized)
+        haystack = f" {' '.join(normalized.split())} "
+        seen = 0
+        for app_id in self._apps.ids():
+            entry = self._apps.get(app_id) or {}
+            keys = [app_id, str(entry.get("display_name") or "")]
+            keys.extend(str(alias) for alias in entry.get("aliases", []))
+            for key in keys:
+                needle = security.normalize_alias(key)
+                if needle and f" {needle} " in haystack:
+                    seen += 1
+                    break
+        return seen >= 2
+
+    def _log_tool_launch(self, name: str, args: dict[str, Any], text: str) -> None:
+        """Log why an app was launched: phrase, peak and duration of the audio."""
+        if name != "launch_application":
+            return
+        app_id = str((args or {}).get("application_id", "") or "")
+        peak = getattr(self._voice, "last_utterance_peak_db", None)
+        duration = getattr(self._voice, "last_utterance_duration_s", None)
+        peak_text = f"{peak:.1f}" if isinstance(peak, (int, float)) else "n/a"
+        duration_text = f"{duration:.2f}" if isinstance(duration, (int, float)) else "n/a"
+        log.info(
+            "launch_application(%s) triggered by: %r (peak: %s dBFS, duration: %ss)",
+            app_id,
+            text,
+            peak_text,
+            duration_text,
+        )
 
     def _llm_messages(self) -> list[dict[str, Any]]:
         system = build_system_prompt(self._config, self._apps)

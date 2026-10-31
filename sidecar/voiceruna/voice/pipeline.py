@@ -243,6 +243,9 @@ class VoicePipeline:
         self._min_utterance_sec = MIN_UTTERANCE_SEC
         self._impulse_max_sec = IMPULSE_MAX_SEC
         self._impulse_min_peak_dbfs = IMPULSE_MIN_PEAK_DBFS
+        self._wake_min_confidence = 0.55
+        self._last_utterance_peak_db: float | None = None
+        self._last_utterance_duration_s: float | None = None
         self._wake_injected = False
         self._busy = False
         self._last_heard = ""
@@ -287,6 +290,7 @@ class VoicePipeline:
             self._impulse_min_peak_dbfs = float(
                 cfg.get("vad.impulse_min_peak_dbfs", IMPULSE_MIN_PEAK_DBFS)
             )
+            self._wake_min_confidence = float(cfg.get("stt.wake_min_confidence", 0.55) or 0)
             self._tail_pad_ms = float(cfg.get("vad.tail_pad_ms", 500) or 0)
             self._debug_save = bool(cfg.get("debug.save_audio", False))
             raw_seconds = float(cfg.get("debug.raw_seconds", 10) or 0)
@@ -1125,6 +1129,18 @@ class VoicePipeline:
             text = await self._transcribe(audio, strip_wake=False)
             if self._closed:
                 return
+            confidence = self._last_stt_confidence
+            if confidence is not None and confidence < self._wake_min_confidence:
+                # TV/noise often decodes into a whole phrase "Вокс, открой ..."
+                # with poor confidence; such a phrase must not wake the assistant.
+                log.info(
+                    "wake: ignoring low-confidence phrase (%.2f < %.2f): %r",
+                    confidence,
+                    self._wake_min_confidence,
+                    text,
+                )
+                self._enter_idle(after_speech=barge_in)
+                return
             if not text:
                 log.debug("wake: phrase without text")
                 self._enter_idle(after_speech=barge_in)
@@ -1420,6 +1436,8 @@ class VoicePipeline:
         level = rms(padded) if padded.size else 0.0
         peak_db = 20.0 * math.log10(peak) if peak > 0.0 else -120.0
         rms_db = 20.0 * math.log10(level) if level > 0.0 else -120.0
+        self._last_utterance_peak_db = peak_db
+        self._last_utterance_duration_s = duration
         # The owner's "the microphone works every other time" is decided here:
         # a quiet peak means the microphone, a good peak with an empty
         # transcript means the code.

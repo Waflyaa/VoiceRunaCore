@@ -88,3 +88,9 @@ def seed_test_apps(directory) -> None:
 
     folder = _Path(directory)
     (folder / "apps.json").write_text(json.dumps(TEST_APPS, ensure_ascii=False), encoding="utf-8")
+
+
+@pytest.fixture(autouse=True)
+def _allow_test_games(monkeypatch):
+    """Test registries contain dota2/factorio; the app strips them in production."""
+    monkeypatch.setenv("VOX_ALLOW_GAMES", "1")

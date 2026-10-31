@@ -169,9 +169,10 @@ DEFAULTS: dict[str, Any] = {
         # (no_speech > drop_no_speech AND avg_logprob < drop_logprob) drops a
         # segment, extreme values drop it alone, compression_ratio catches loops,
         # and a dense confident segment is rescued even if no_speech is high.
-        "drop_no_speech": 0.6,
+        "drop_no_speech": 0.4,
         "drop_logprob": -1.0,
-        "extreme_no_speech": 0.85,
+        "extreme_no_speech": 0.7,
+        "wake_min_confidence": 0.55,
         "extreme_logprob": -1.5,
         "max_compression_ratio": 3.0,
         "sparse_min_sec": 10.0,
@@ -179,7 +180,7 @@ DEFAULTS: dict[str, Any] = {
         "rescue_logprob": -0.5,
         "rescue_density": 2.0,
         "rescue_min_sec": 5.0,
-        "min_confidence": 0.42,
+        "min_confidence": 0.55,
     },
     "vad": {
         # Endpointing by real silence, not a fixed timer: a long sentence with

@@ -344,9 +344,10 @@ def test_and_filter_drops_unsure_segment(config):
     assert _text_with_segment(config, segment) == ""
 
 
-def test_and_filter_keeps_confident_segment(config):
+def test_high_no_speech_is_dropped_even_when_confident(config):
+    """Owner rule 2026-11-01: no_speech > 0.4 always means hallucination."""
     segment = FakeSegment(" открой блокнот.", -0.8, 0.7, start=0.0, end=2.0)
-    assert _text_with_segment(config, segment) == "открой блокнот."
+    assert _text_with_segment(config, segment) == ""
 
 
 def test_compression_ratio_loop_is_dropped(config):
@@ -359,7 +360,7 @@ def test_sparse_long_segment_is_dropped(config):
     assert _text_with_segment(config, segment) == ""
 
 
-def test_dense_confident_segment_is_rescued_from_high_no_speech(config):
+def test_dense_confident_segment_cannot_override_no_speech(config):
     segment = FakeSegment(
         " открой блокнот пожалуйста сейчас же.",
         -0.2,
@@ -367,7 +368,7 @@ def test_dense_confident_segment_is_rescued_from_high_no_speech(config):
         start=0.0,
         end=6.0,
     )
-    assert _text_with_segment(config, segment) == "открой блокнот пожалуйста сейчас же."
+    assert _text_with_segment(config, segment) == ""
 
 
 def test_decoder_loop_text_is_dropped(config):
